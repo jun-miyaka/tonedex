@@ -1,7 +1,6 @@
 // audio_analysis.dart - compute() 用の isolate 対応バージョン（FFT含む）
 import 'dart:math';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart'; // compute() のために必要
 
 // 複素数クラス定義（FFTで使用）

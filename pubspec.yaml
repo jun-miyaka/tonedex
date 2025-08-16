@@ -40,7 +40,7 @@ dependencies:
   share_plus: ^7.2.1               # 分析結果共有用
   shared_preferences: ^2.2.2       # 設定情報保存などに使用
   url_launcher: ^6.2.5
-
+  
   flutter_localizations:
     sdk: flutter
 
