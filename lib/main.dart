@@ -61,15 +61,17 @@ class _RecorderPageState extends State<RecorderPage> {
   void initState() {
     super.initState();
 
-    // 🔹 録音一覧の読み込み（非表示状態で先に準備）
-    _loadRecordings();
-
-    // 🔹 初期UI描画が完了したタイミングでフラグを立て、初回メッセージ表示
+    // 🔽 初回描画が終わってから UI を使える状態にし、裏で一覧ロード
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showWelcomeMessageIfFirstLaunch();
-      setState(() {
-        _isReady = true; // UI使用可能状態へ
-      });
+      if (mounted) {
+        setState(() {
+          _isReady = true;
+        }); // まずUIを使える状態に
+      }
+      _loadRecordings(); // ← awaitしない。裏で実行（_listReady がtrueになるまでボタンは無効）
+      // もし unawaited を使うなら:
+      // unawaited(_loadRecordings()); // 要: import 'dart:async';
     });
   }
 
