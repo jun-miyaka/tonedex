@@ -16,7 +16,7 @@ import 'package:sax_app/help_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sax_app/l10n/app_localizations.dart';
-import 'package:url_launcher/url_launcher.dart'; // ← これを使う
+// ← これを使う
 
 void main() {
   runApp(const MyApp());
@@ -32,6 +32,9 @@ class RecorderPage extends StatefulWidget {
 class _RecorderPageState extends State<RecorderPage> {
   final GlobalKey _graphKey = GlobalKey(); // Stateの中で宣言
   bool _isReady = false;
+  bool _listReady = false; // 初回ロード完了フラグ
+  bool _busy = false; // 操作直列化ロック
+  int _loadGen = 0; // リスト更新の世代ID（競合回避）
 
   // 🔽 ネイティブ録音連携用チャンネルとオーディオプレイヤー
   static const MethodChannel _channel = MethodChannel(
@@ -42,6 +45,17 @@ class _RecorderPageState extends State<RecorderPage> {
   String? _selectedRecording;
   final Map<String, Map<String, double>> _analysisResults = {};
   String? _currentFilePath;
+
+  // --- Lock helper（ここに追加） ---
+  Future<T?> _withLock<T>(Future<T> Function() task) async {
+    if (_busy) return null; // 二重押し無視
+    setState(() => _busy = true);
+    try {
+      return await task();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   void initState() {
@@ -452,19 +466,32 @@ class _RecorderPageState extends State<RecorderPage> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.play_arrow),
-                        onPressed: () => _play(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() => _play(fileNames[index])),
                       ),
                       IconButton(
                         icon: const Icon(Icons.analytics),
-                        onPressed: () => _analyze(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() => _analyze(fileNames[index])),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit),
-                        onPressed: () => _showRenameDialog(index),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() async {
+                                _showRenameDialog(index);
+                              }),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        onPressed: () => _delete(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() async {
+                                _delete(fileNames[index]);
+                                await _loadRecordings(); // リスト更新
+                              }),
                       ),
                     ],
                   ),
