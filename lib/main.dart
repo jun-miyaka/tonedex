@@ -14,8 +14,9 @@ import 'package:share_plus/share_plus.dart'; // ✅ 共有全体に必要
 // ✅ XFile に必要
 import 'package:sax_app/help_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sax_app/l10n/app_localizations.dart';
+import 'package:url_launcher/url_launcher.dart'; // ← これを使う
 
 void main() {
   runApp(const MyApp());
@@ -384,6 +385,7 @@ class _RecorderPageState extends State<RecorderPage> {
   // 🔽 メインUI構築（録音・再生・分析・削除 + グラフ表示）
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!; // ✅ ← ここに置く
     if (!_isReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -394,7 +396,7 @@ class _RecorderPageState extends State<RecorderPage> {
           children: [
             Text('ToneDex', style: TextStyle(fontSize: 20)),
             Text(
-              AppLocalizations.of(context)!.visualizeYourTone,
+              l10n.visualizeYourTone, // ✅ 統一して呼ぶ
               style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],

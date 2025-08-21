@@ -39,7 +39,7 @@ dependencies:
   file_picker: ^10.2.0             # 音声ファイルの読み込み・選択（手動分析用）
   share_plus: ^7.2.1               # 分析結果共有用
   shared_preferences: ^2.2.2       # 設定情報保存などに使用
-  url_launcher: ^6.2.5
+  url_launcher: ^6.3.0
 
   flutter_localizations:
     sdk: flutter

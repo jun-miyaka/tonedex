@@ -7,11 +7,7 @@ class HelpPage extends StatelessWidget {
 
   void _launchURL(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      throw 'Could not launch $url';
-    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -19,37 +15,43 @@ class HelpPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppLocalizations.of(context)!.help)),
       body: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 AppLocalizations.of(context)!.whatIsToneDex,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(AppLocalizations.of(context)!.whatIsToneDexDescription),
 
-              SizedBox(height: 16),
-              Text('How to use', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.howToUse,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               Text(AppLocalizations.of(context)!.howToUseDescription),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(context)!.analysisParameters,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(AppLocalizations.of(context)!.analysisParametersDescription),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 AppLocalizations.of(context)!.aboutZScore,
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               Text(AppLocalizations.of(context)!.aboutZScoreDescription),
 
-              SizedBox(height: 16),
-              Text('Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(context)!.notes,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               Text(AppLocalizations.of(context)!.notesDescription),
 
               const SizedBox(height: 16),
@@ -81,6 +83,42 @@ class HelpPage extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.blue,
                     decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              // --- Support the Developer (Buy Me a Coffee) ---
+              Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.support,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(AppLocalizations.of(context)!.supportDescription),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.favorite),
+                          label: Text(
+                            AppLocalizations.of(context)!.buyMeACoffee,
+                          ),
+                          onPressed: () {
+                            _launchURL('https://www.buymeacoffee.com/junm');
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

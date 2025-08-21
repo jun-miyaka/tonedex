@@ -2,3 +2,5 @@ arb-dir: lib/l10n
 template-arb-file: app_en.arb
 output-localization-file: app_localizations.dart
 output-class: AppLocalizations
+output-dir: lib/l10n          # ★追加：生成物を lib/l10n に出す
+synthetic-package: false      # ★追加：flutter_gen を使わない
