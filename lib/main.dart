@@ -121,13 +121,31 @@ class _RecorderPageState extends State<RecorderPage> {
   List<File> _recordings = [];
 
   Future<void> _loadRecordings() async {
-    // 録音ファイルの一覧を読み込む処理（例）
-    final directory = await getApplicationDocumentsDirectory();
-    final files = directory.listSync().whereType<File>().toList();
+    final myGen = ++_loadGen; // ← このロードの世代ID
 
-    // setStateなどでファイルを反映
+    // 既存の保存先を使う。/recordings があればそちらを優先（なければ従来どおり直下）
+    final docDir = await getApplicationDocumentsDirectory();
+    final recDir = Directory('${docDir.path}/recordings');
+    final targetDir = await recDir.exists() ? recDir : docDir;
+
+    // wav/aac のみ列挙（同期ではなく非同期API）
+    final files = await targetDir
+        .list(followLinks: false)
+        .where(
+          (e) =>
+              e is File && (e.path.endsWith('.wav') || e.path.endsWith('.aac')),
+        )
+        .cast<File>()
+        .toList();
+
+    files.sort((a, b) => a.path.compareTo(b.path));
+
+    if (!mounted) return;
+    if (myGen != _loadGen) return; // ← 遅れて来た古い結果は捨てる
+
     setState(() {
       _recordings = files;
+      _listReady = true; // ← 初回ロード完了！
     });
   }
 
