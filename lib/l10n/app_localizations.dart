@@ -352,6 +352,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Brightness: Brightness Index'**
   String get brightnessExplanation;
+
+  /// No description provided for @support.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get support;
+
+  /// No description provided for @supportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'If you enjoy using ToneDex, consider supporting the developer on Buy Me a Coffee.'**
+  String get supportDescription;
+
+  /// No description provided for @buyMeACoffee.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy Me a Coffee'**
+  String get buyMeACoffee;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

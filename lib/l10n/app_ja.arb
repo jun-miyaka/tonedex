@@ -42,5 +42,8 @@
     "welcomeMessage": "初めての方は、メニューからヘルプを開き、使用方法をご覧ください。",
     "gotIt": "OK",
     "brightnessLabel": "Brightness（高周波）",
-    "brightnessExplanation": "Brightness：明るさ指標"
+    "brightnessExplanation": "Brightness：明るさ指標",
+    "support": "開発者をサポート",
+    "supportDescription": "ToneDexを気に入っていただけたら、Buy Me a Coffeeで開発者を応援してください。",
+    "buyMeACoffee": "Buy Me a Coffee"
 }

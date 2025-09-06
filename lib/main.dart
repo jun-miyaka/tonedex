@@ -14,8 +14,9 @@ import 'package:share_plus/share_plus.dart'; // ✅ 共有全体に必要
 // ✅ XFile に必要
 import 'package:sax_app/help_page.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sax_app/l10n/app_localizations.dart';
+// ← これを使う
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +32,9 @@ class RecorderPage extends StatefulWidget {
 class _RecorderPageState extends State<RecorderPage> {
   final GlobalKey _graphKey = GlobalKey(); // Stateの中で宣言
   bool _isReady = false;
+  bool _listReady = false; // 初回ロード完了フラグ
+  bool _busy = false; // 操作直列化ロック
+  int _loadGen = 0; // リスト更新の世代ID（競合回避）
 
   // 🔽 ネイティブ録音連携用チャンネルとオーディオプレイヤー
   static const MethodChannel _channel = MethodChannel(
@@ -42,19 +46,32 @@ class _RecorderPageState extends State<RecorderPage> {
   final Map<String, Map<String, double>> _analysisResults = {};
   String? _currentFilePath;
 
+  // --- Lock helper（ここに追加） ---
+  Future<T?> _withLock<T>(Future<T> Function() task) async {
+    if (_busy) return null; // 二重押し無視
+    setState(() => _busy = true);
+    try {
+      return await task();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
-    // 🔹 録音一覧の読み込み（非表示状態で先に準備）
-    _loadRecordings();
-
-    // 🔹 初期UI描画が完了したタイミングでフラグを立て、初回メッセージ表示
+    // 🔽 初回描画が終わってから UI を使える状態にし、裏で一覧ロード
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showWelcomeMessageIfFirstLaunch();
-      setState(() {
-        _isReady = true; // UI使用可能状態へ
-      });
+      if (mounted) {
+        setState(() {
+          _isReady = true;
+        }); // まずUIを使える状態に
+      }
+      _loadRecordings(); // ← awaitしない。裏で実行（_listReady がtrueになるまでボタンは無効）
+      // もし unawaited を使うなら:
+      // unawaited(_loadRecordings()); // 要: import 'dart:async';
     });
   }
 
@@ -106,13 +123,31 @@ class _RecorderPageState extends State<RecorderPage> {
   List<File> _recordings = [];
 
   Future<void> _loadRecordings() async {
-    // 録音ファイルの一覧を読み込む処理（例）
-    final directory = await getApplicationDocumentsDirectory();
-    final files = directory.listSync().whereType<File>().toList();
+    final myGen = ++_loadGen; // ← このロードの世代ID
 
-    // setStateなどでファイルを反映
+    // 既存の保存先を使う。/recordings があればそちらを優先（なければ従来どおり直下）
+    final docDir = await getApplicationDocumentsDirectory();
+    final recDir = Directory('${docDir.path}/recordings');
+    final targetDir = await recDir.exists() ? recDir : docDir;
+
+    // wav/aac のみ列挙（同期ではなく非同期API）
+    final files = await targetDir
+        .list(followLinks: false)
+        .where(
+          (e) =>
+              e is File && (e.path.endsWith('.wav') || e.path.endsWith('.aac')),
+        )
+        .cast<File>()
+        .toList();
+
+    files.sort((a, b) => a.path.compareTo(b.path));
+
+    if (!mounted) return;
+    if (myGen != _loadGen) return; // ← 遅れて来た古い結果は捨てる
+
     setState(() {
       _recordings = files;
+      _listReady = true; // ← 初回ロード完了！
     });
   }
 
@@ -384,6 +419,7 @@ class _RecorderPageState extends State<RecorderPage> {
   // 🔽 メインUI構築（録音・再生・分析・削除 + グラフ表示）
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!; // ✅ ← ここに置く
     if (!_isReady) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -394,7 +430,7 @@ class _RecorderPageState extends State<RecorderPage> {
           children: [
             Text('ToneDex', style: TextStyle(fontSize: 20)),
             Text(
-              AppLocalizations.of(context)!.visualizeYourTone,
+              l10n.visualizeYourTone, // ✅ 統一して呼ぶ
               style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],
@@ -450,19 +486,32 @@ class _RecorderPageState extends State<RecorderPage> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.play_arrow),
-                        onPressed: () => _play(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() => _play(fileNames[index])),
                       ),
                       IconButton(
                         icon: const Icon(Icons.analytics),
-                        onPressed: () => _analyze(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() => _analyze(fileNames[index])),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit),
-                        onPressed: () => _showRenameDialog(index),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() async {
+                                _showRenameDialog(index);
+                              }),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete),
-                        onPressed: () => _delete(fileNames[index]),
+                        onPressed: (!_listReady || _busy)
+                            ? null
+                            : () => _withLock(() async {
+                                _delete(fileNames[index]);
+                                await _loadRecordings(); // リスト更新
+                              }),
                       ),
                     ],
                   ),

@@ -136,4 +136,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get brightnessExplanation => 'Brightness: Brightness Index';
+
+  @override
+  String get support => 'Support';
+
+  @override
+  String get supportDescription => 'If you enjoy using ToneDex, consider supporting the developer on Buy Me a Coffee.';
+
+  @override
+  String get buyMeACoffee => 'Buy Me a Coffee';
 }

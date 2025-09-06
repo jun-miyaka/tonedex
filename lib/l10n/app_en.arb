@@ -45,5 +45,8 @@
     },
     "gotIt": "Got it!",
     "brightnessLabel": "Brightness (High-frequency ratio)",
-    "brightnessExplanation": "Brightness: Brightness Index"
+    "brightnessExplanation": "Brightness: Brightness Index",
+    "support": "Support",
+    "supportDescription": "If you enjoy using ToneDex, consider supporting the developer on Buy Me a Coffee.",
+    "buyMeACoffee": "Buy Me a Coffee"
 }
