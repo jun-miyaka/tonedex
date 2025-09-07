@@ -47,5 +47,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+
+    <!-- 写真ライブラリ“閲覧/選択”に触る可能性がある場合 -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>
+    ToneDex saves and optionally reads images (e.g., recorded analysis charts) to/from your photo library for sharing.
+    (写真ライブラリに分析グラフ等の画像を保存・参照して共有するために使用します)
+    </string>
+
+    <!-- “保存のみ”でも iOS 11+ はこれが必要になる場合あり：安全のため併記を推奨 -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>
+    ToneDex saves analysis images to your photo library so you can share them.
+    (共有のため、分析画像を写真ライブラリに保存します)
+    </string>
 </dict>
 </plist>
