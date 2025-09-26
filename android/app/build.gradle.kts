@@ -32,8 +32,8 @@ android {
         applicationId = "com.junmiyakawa.tonedex"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 10
-        versionName = "5.0.5"
+        versionCode = 16
+        versionName = "5.0.6"
     }
 
     signingConfigs {
