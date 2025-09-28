@@ -6,6 +6,8 @@ class GraphWidget extends StatelessWidget {
   final List<String> labels;
   final List<String> titles;
   final List<String> explanations; // ← ✅ これが足りない！
+  // ★ 追加：各グラフを個別に撮るためのキー（任意）
+  final List<GlobalKey>? perChartKeys;
 
   const GraphWidget({
     super.key,
@@ -13,6 +15,7 @@ class GraphWidget extends StatelessWidget {
     required this.labels,
     required this.titles,
     required this.explanations, // Changed from Map<String, String> to List<String> // ✅ これが必要
+    this.perChartKeys, // ★ 追加
   });
 
   @override
@@ -23,117 +26,130 @@ class GraphWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(zScores.length, (paramIndex) {
           final values = safeZ(zScores, paramIndex, labels.length);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                titles[paramIndex],
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+          return RepaintBoundary(
+            key: (perChartKeys != null && perChartKeys!.length > paramIndex)
+                ? perChartKeys![paramIndex]
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titles[paramIndex],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-              Text(
-                explanations[paramIndex],
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 200,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: BarChart(
-                        BarChartData(
-                          minY: -2,
-                          maxY: 2,
-                          barTouchData: BarTouchData(
-                            enabled: true,
-                            touchTooltipData: BarTouchTooltipData(
-                              tooltipBgColor: Colors.black54,
-                              getTooltipItem:
-                                  (group, groupIndex, rod, rodIndex) {
-                                    return BarTooltipItem(
-                                      rod.toY.toStringAsFixed(2),
-                                      const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.white,
+                Text(
+                  explanations[paramIndex],
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 200,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: BarChart(
+                          BarChartData(
+                            minY: -2,
+                            maxY: 2,
+                            // ← ここ以下はあなたの既存設定をそのまま残す
+                            barTouchData: BarTouchData(
+                              enabled: true,
+                              touchTooltipData: BarTouchTooltipData(
+                                tooltipBgColor: Colors.black54,
+                                getTooltipItem:
+                                    (group, groupIndex, rod, rodIndex) {
+                                      return BarTooltipItem(
+                                        rod.toY.toStringAsFixed(2),
+                                        const TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    },
+                              ),
+                            ),
+                            gridData: FlGridData(
+                              show: true,
+                              drawHorizontalLine: true,
+                              getDrawingHorizontalLine: (_) =>
+                                  FlLine(color: Colors.grey, strokeWidth: 1),
+                            ),
+                            borderData: FlBorderData(
+                              show: true,
+                              border: const Border(
+                                left: BorderSide(color: Colors.black, width: 1),
+                                bottom: BorderSide(
+                                  color: Colors.black,
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                            titlesData: FlTitlesData(
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  interval: 1,
+                                ),
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  getTitlesWidget: (value, meta) {
+                                    final index = value.toInt();
+                                    return SideTitleWidget(
+                                      axisSide: meta.axisSide,
+                                      space: 8,
+                                      child: Transform.rotate(
+                                        angle: -0.5,
+                                        child: Text(
+                                          labels[index],
+                                          style: const TextStyle(fontSize: 10),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                     );
                                   },
-                            ),
-                          ),
-                          gridData: FlGridData(
-                            show: true,
-                            drawHorizontalLine: true,
-                            getDrawingHorizontalLine: (_) {
-                              return FlLine(color: Colors.grey, strokeWidth: 1);
-                            },
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: const Border(
-                              left: BorderSide(color: Colors.black, width: 1),
-                              bottom: BorderSide(color: Colors.black, width: 1),
-                            ),
-                          ),
-                          titlesData: FlTitlesData(
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                interval: 1,
-                              ),
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, meta) {
-                                  final index = value.toInt();
-                                  return SideTitleWidget(
-                                    axisSide: meta.axisSide,
-                                    space: 8,
-                                    child: Transform.rotate(
-                                      angle: -0.5,
-                                      child: Text(
-                                        labels[index],
-                                        style: const TextStyle(fontSize: 10),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                          ),
-                          barGroups: List.generate(labels.length, (i) {
-                            return BarChartGroupData(
-                              x: i,
-                              barRods: [
-                                BarChartRodData(
-                                  toY: values[i],
-                                  width: 16,
-                                  borderRadius: BorderRadius.circular(4),
-                                  color: Colors.blueAccent,
                                 ),
-                              ],
-                              showingTooltipIndicators: [0],
-                            );
-                          }),
+                              ),
+                              topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                            ),
+                            barGroups: List.generate(labels.length, (i) {
+                              final values = safeZ(
+                                zScores,
+                                paramIndex,
+                                labels.length,
+                              );
+                              return BarChartGroupData(
+                                x: i,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: values[i],
+                                    width: 16,
+                                    borderRadius: BorderRadius.circular(4),
+                                    color: Colors.blueAccent,
+                                  ),
+                                ],
+                                showingTooltipIndicators: [0],
+                              );
+                            }),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 24),
+              ],
+            ),
           );
         }),
       ),

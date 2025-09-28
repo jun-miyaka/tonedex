@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -18,6 +18,47 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sax_app/l10n/app_localizations.dart';
 // ← これを使う
 
+// ▼ Calibrated/Z-score 表示モード
+enum DisplayMode { raw, calibrated, zscore }
+
+// ▼ 解析が 44.1kHz 前提なら固定。将来、実サンプルレートを持っている場合は置換してください。
+const int _kFs = 44100;
+const double _kNyq = _kFs / 2.0; // = 22050.0
+const double _kRmsRef = 20000.0; // とりあえず 2e4。様子を見て18k〜22kで微調整
+
+// ▼ 画面状態にモードを追加（既定は Calibrated）
+DisplayMode _mode = DisplayMode.calibrated;
+
+// ▼ Calibrated用の値変換（表示専用。元データ results[][] はそのまま Raw）
+double _toCalibrated(String metric, double raw) {
+  switch (metric) {
+    case 'Centroid':
+    case 'Bandwidth':
+      return (raw / _kNyq).clamp(0.0, 1.0);
+    case 'Brightness': // = 0–1 想定
+    case 'Symmetry': // 互換のため（UIではBrightness表記でもOK）
+      return raw.clamp(0.0, 1.0); // ← ここは割らない
+    case 'RMS': // 0–1（線形）
+      return (raw / _kRmsRef).clamp(0.0, 1.0);
+    case 'ZCR': // すでに cross/s
+    default:
+      return raw;
+  }
+}
+
+// ▼ Zスコア（1列分の値配列 → Z配列）
+List<double> _zScoresOf(List<double> values) {
+  if (values.isEmpty) return const [];
+  final mean = values.reduce((a, b) => a + b) / values.length;
+  final varSum = values.fold(0.0, (s, v) => s + (v - mean) * (v - mean));
+  final std = (varSum / values.length).sqrtSafe();
+  return values.map((v) => std > 0 ? (v - mean) / std : 0.0).toList();
+}
+
+extension DoubleXSqrt on double {
+  double sqrtSafe() => (isFinite && this >= 0) ? math.sqrt(this) : 0.0;
+}
+
 void main() {
   runApp(const MyApp());
 }
@@ -31,10 +72,45 @@ class RecorderPage extends StatefulWidget {
 
 class _RecorderPageState extends State<RecorderPage> {
   final GlobalKey _graphKey = GlobalKey(); // Stateの中で宣言
+  final List<GlobalKey> _chartKeys = List.generate(5, (_) => GlobalKey());
   bool _isReady = false;
   bool _listReady = false; // 初回ロード完了フラグ
   bool _busy = false; // 操作直列化ロック
   int _loadGen = 0; // リスト更新の世代ID（競合回避）
+
+  // ← クラスの中、build()より上
+  String _modeLabel() {
+    switch (_mode) {
+      case DisplayMode.raw:
+        return 'Raw';
+      case DisplayMode.calibrated:
+        return 'Calibrated';
+      case DisplayMode.zscore:
+        return 'Z-score';
+    }
+  }
+
+  // _RecorderPageState 内（build()より上）
+  Widget _buildModeBadge() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Mode: ${_mode == DisplayMode.raw
+              ? 'Raw'
+              : _mode == DisplayMode.calibrated
+              ? 'Calibrated'
+              : 'Z-score'}',
+          style: const TextStyle(fontSize: 12, color: Colors.white70),
+        ),
+      ),
+    );
+  }
 
   // 🔽 ネイティブ録音連携用チャンネルとオーディオプレイヤー
   static const MethodChannel _channel = MethodChannel(
@@ -75,6 +151,121 @@ class _RecorderPageState extends State<RecorderPage> {
     });
   }
 
+  String _formatRecordLines(int index, {DisplayMode? override}) {
+    if (index < 0 || index >= results.length || results[index].length < 5) {
+      return AppLocalizations.of(context)!.notAnalyzedOrIncomplete;
+    }
+    final mode = override ?? _mode;
+    final v = results[index];
+    final metrics = const ['RMS', 'ZCR', 'Centroid', 'Bandwidth', 'Brightness'];
+
+    double z(int col) {
+      final colVals = [
+        for (final row in results)
+          if (row.length >= 5) _toCalibrated(metrics[col], row[col]), // ← ここを通す
+      ];
+      final zs = _zScoresOf(colVals);
+      return (index < zs.length) ? zs[index] : 0.0;
+    }
+
+    String fmt(String name, int col) {
+      switch (mode) {
+        case DisplayMode.raw:
+          return '$name: ${v[col].toStringAsFixed(3)}';
+        case DisplayMode.calibrated:
+          if (name == 'ZCR') {
+            return '$name: ${v[col].round()} cross/s';
+          } else {
+            final cal = _toCalibrated(name, v[col]);
+            return '$name: ${(cal * 100).toStringAsFixed(0)}%';
+          }
+        case DisplayMode.zscore:
+          final zv = z(col);
+          return '$name: ${zv.toStringAsFixed(2)}';
+      }
+    }
+
+    final lines = <String>[
+      fmt(metrics[0], 0),
+      fmt(metrics[1], 1),
+      fmt(metrics[2], 2),
+      fmt(metrics[3], 3),
+      fmt(metrics[4], 4),
+    ];
+    return lines.join('\n');
+  }
+
+  // 共有テキストを3種（Raw / Calibrated / Z-score）で出力し、共有シートを開く
+  Future<void> _shareAllAnalysisResultsMulti(GlobalKey boundaryKey) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final String ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '')
+        .substring(0, 15);
+
+    String buildSection(DisplayMode m) {
+      final label = (m == DisplayMode.raw)
+          ? 'Raw'
+          : (m == DisplayMode.calibrated ? 'Calibrated' : 'Z-score');
+      final body = List.generate(fileNames.length, (i) {
+        final name = labels[i];
+        final ok = results.length > i && results[i].length == 5;
+        final lines = ok
+            ? _formatRecordLines(i, /*現在の描画モードではなく*/ override: m)
+            : AppLocalizations.of(context)!.notAnalyzedOrIncomplete;
+        return '$name\n$lines';
+      }).join('\n\n');
+      return '[$label]\n$body';
+    }
+
+    final textRaw = buildSection(DisplayMode.raw);
+    final textCal = buildSection(DisplayMode.calibrated);
+    final textZ = buildSection(DisplayMode.zscore);
+
+    // 1) テキストを書き出す
+    final textFile = File('${dir.path}/analysis_results_$ts.txt');
+    await textFile.writeAsString([textRaw, textCal, textZ].join('\n\n'));
+
+    // 2) チャート画像をキャプチャ（あれば）
+    final xfiles = <XFile>[XFile(textFile.path)];
+    final boundary =
+        boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary != null) {
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+      final chartFile = File('${dir.path}/chart_$ts.png');
+      await chartFile.writeAsBytes(pngBytes);
+      xfiles.add(XFile(chartFile.path));
+    }
+
+    // 個別5枚（GraphWidget内で perChartKeys が RepaintBoundary を持っている前提）
+    const names = ['rms', 'zcr', 'centroid', 'bandwidth', 'brightness'];
+    await Future.delayed(const Duration(milliseconds: 50)); // レイアウト安定待ち
+
+    for (int i = 0; i < _chartKeys.length; i++) {
+      final b =
+          _chartKeys[i].currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (b == null) continue;
+      final img = await b.toImage(pixelRatio: 3.0);
+      final bd = await img.toByteData(format: ui.ImageByteFormat.png);
+      if (bd == null) continue;
+      final png = bd.buffer.asUint8List();
+      final f = File('${dir.path}/chart_${names[i]}_$ts.png');
+      await f.writeAsBytes(png);
+      xfiles.add(XFile(f.path));
+    }
+
+    // 3) 共有シートを開く（share_plus）
+    await Share.shareXFiles(
+      xfiles,
+      text: 'ToneDex analysis (Raw / Calibrated / Z-score) — $ts',
+      subject: 'ToneDex analysis $ts',
+    );
+  }
+
   Future<void> _shareAllAnalysisResults(GlobalKey boundaryKey) async {
     final dir = await getApplicationDocumentsDirectory();
 
@@ -83,13 +274,7 @@ class _RecorderPageState extends State<RecorderPage> {
     final textContent = List.generate(fileNames.length, (i) {
       final name = labels[i];
       final result = results.length > i && results[i].length == 5
-          ? [
-              'RMS: ${results[i][0].toStringAsFixed(3)}',
-              'ZCR: ${results[i][1].toStringAsFixed(3)}',
-              'Centroid: ${results[i][2].toStringAsFixed(3)}',
-              'Bandwidth: ${results[i][3].toStringAsFixed(3)}',
-              'Brightness: ${results[i][4].toStringAsFixed(3)}',
-            ].join('\n')
+          ? _formatRecordLines(i) // ← フォーマッタ呼び出しに置換
           : '未分析または不完全';
       return '$name\n$result';
     }).join('\n\n');
@@ -367,10 +552,18 @@ class _RecorderPageState extends State<RecorderPage> {
   // 🔽 Zスコア計算関数（1指標分）
   List<double> _calculateZScores(List<double> values) {
     final mean = values.reduce((a, b) => a + b) / values.length;
-    final std = sqrt(
-      values.map((x) => pow(x - mean, 2)).reduce((a, b) => a + b) /
-          values.length,
-    );
+    // 分散 = 平方偏差の平均（pow を使わず掛け算に）
+    final variance =
+        values
+            .map((x) {
+              final d = x - mean;
+              return d * d;
+            })
+            .reduce((a, b) => a + b) /
+        values.length;
+
+    // 標準偏差
+    final std = variance > 0 ? math.sqrt(variance) : 0.0;
     if (std == 0) return List.filled(values.length, 0.0);
     return values.map((x) => (x - mean) / std).toList();
   }
@@ -412,6 +605,8 @@ class _RecorderPageState extends State<RecorderPage> {
           AppLocalizations.of(context)!.bandwidthExplanation,
           AppLocalizations.of(context)!.brightnessExplanation,
         ],
+        // ★ 追加：各グラフ用のキーを渡す
+        perChartKeys: _chartKeys,
       ),
     );
   }
@@ -427,15 +622,34 @@ class _RecorderPageState extends State<RecorderPage> {
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          // 置換後（標語を復活）
           children: [
-            Text('ToneDex', style: TextStyle(fontSize: 20)),
+            const Text('ToneDex', style: TextStyle(fontSize: 20)),
+            const SizedBox(height: 2),
             Text(
-              l10n.visualizeYourTone, // ✅ 統一して呼ぶ
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+              AppLocalizations.of(context)!.visualizeYourTone, // ARBの標語キー
+              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
           ],
         ),
+        actions: [
+          PopupMenuButton<DisplayMode>(
+            initialValue: _mode,
+            onSelected: (m) => setState(() => _mode = m),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: DisplayMode.raw, child: Text('Raw')),
+              PopupMenuItem(
+                value: DisplayMode.calibrated,
+                child: Text('Calibrated'),
+              ),
+              PopupMenuItem(value: DisplayMode.zscore, child: Text('Z-score')),
+            ],
+            icon: const Icon(Icons.tune),
+            tooltip: 'Display mode',
+          ),
+        ],
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -457,10 +671,20 @@ class _RecorderPageState extends State<RecorderPage> {
             const SizedBox(height: 8),
 
             // 共有ボタン
-            ElevatedButton(
-              onPressed: () => _shareAllAnalysisResults(_graphKey),
-              child: Text(AppLocalizations.of(context)!.shareResults),
+            // 共有ボタン（フル幅）＋その直下にMODEバッジ
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (!_listReady || _busy)
+                    ? null
+                    : () => _withLock(
+                        () => _shareAllAnalysisResultsMulti(_graphKey),
+                      ),
+                child: Text(AppLocalizations.of(context)!.shareResults),
+              ),
             ),
+            const SizedBox(height: 6),
+            _buildModeBadge(),
 
             const SizedBox(height: 16),
 
@@ -471,16 +695,10 @@ class _RecorderPageState extends State<RecorderPage> {
                 child: ListTile(
                   title: Text(labels[index]),
                   subtitle: results.length > index && results[index].length == 5
-                      ? Text(
-                          'RMS: ${results[index][0].toStringAsFixed(3)}\n'
-                          'ZCR: ${results[index][1].toStringAsFixed(3)}\n'
-                          'Centroid: ${results[index][2].toStringAsFixed(3)}\n'
-                          'Bandwidth: ${results[index][3].toStringAsFixed(3)}\n'
-                          'Brightness: ${results[index][4].toStringAsFixed(3)}',
-                        )
+                      ? Text(_formatRecordLines(index))
                       : Text(
                           AppLocalizations.of(context)!.notAnalyzedOrIncomplete,
-                        ), // ← localized from "未分析またはデータ不完全",
+                        ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
