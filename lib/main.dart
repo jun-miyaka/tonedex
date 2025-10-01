@@ -112,6 +112,124 @@ class _RecorderPageState extends State<RecorderPage> {
     );
   }
 
+  // metrics名（results の列と対応）
+  static const List<String> _kMetrics = [
+    'RMS',
+    'ZCR',
+    'Centroid',
+    'Bandwidth',
+    'Brightness',
+  ];
+
+  // Zスコア（既に _zScoresOf があるならそれを使ってOK。無ければこれを置く）
+  List<double> _zScoresOf(List<double> values) {
+    if (values.isEmpty) return const [];
+    final mean = values.reduce((a, b) => a + b) / values.length;
+    double varSum = 0.0;
+    for (final x in values) {
+      final d = x - mean;
+      varSum += d * d;
+    }
+    final std = varSum / values.length;
+    final denom = std > 0 ? math.sqrt(std) : 0.0;
+    return [for (final x in values) denom > 0 ? (x - mean) / denom : 0.0];
+  }
+
+  // モードに応じた「描画用の値」（5本 × labels.length）を作る
+  List<List<double>> _buildChartSeriesFor(DisplayMode mode) {
+    final n = labels.length;
+    final series = List.generate(5, (_) => <double>[]);
+    if (mode == DisplayMode.zscore) {
+      for (int m = 0; m < 5; m++) {
+        final name = _kMetrics[m];
+        final colCal = <double>[];
+        for (int i = 0; i < n; i++) {
+          final raw = (results.length > i && results[i].length >= 5)
+              ? results[i][m]
+              : 0.0;
+          final cal = (m == 1)
+              ? raw
+              : _toCalibrated(name, raw); // ZCRだけ生値（cross/s）
+          colCal.add(cal);
+        }
+        series[m] = _zScoresOf(colCal);
+      }
+    } else if (mode == DisplayMode.calibrated) {
+      for (int m = 0; m < 5; m++) {
+        final name = _kMetrics[m];
+        for (int i = 0; i < n; i++) {
+          final raw = (results.length > i && results[i].length >= 5)
+              ? results[i][m]
+              : 0.0;
+          final v = (m == 1) ? raw : _toCalibrated(name, raw); // ZCRは実数
+          series[m].add(v);
+        }
+      }
+    } else {
+      // Raw
+      for (int m = 0; m < 5; m++) {
+        for (int i = 0; i < n; i++) {
+          final raw = (results.length > i && results[i].length >= 5)
+              ? results[i][m]
+              : 0.0;
+          series[m].add(raw);
+        }
+      }
+    }
+    return series;
+  }
+
+  double _niceCeil(double v) {
+    if (!(v.isFinite) || v <= 0) return 1.0;
+    final log10 = math.log(v) / math.ln10;
+    final pow10 = math.pow(10.0, log10.floorToDouble()).toDouble();
+    final n = v / pow10; // [1,10)
+    double step;
+    if (n <= 1.0)
+      step = 1.0;
+    else if (n <= 2.0)
+      step = 2.0;
+    else if (n <= 5.0)
+      step = 5.0;
+    else
+      step = 10.0;
+    return step * pow10;
+  }
+
+  // モード別のY軸レンジ（5本ぶん）
+  List<double> _minYsFor(DisplayMode mode, List<List<double>> s) {
+    if (mode == DisplayMode.zscore) return List.filled(5, -2.0);
+
+    if (mode == DisplayMode.calibrated) {
+      // ZCRのみ実数。下限は最小の98%まで少しだけ余裕、他は0固定
+      final zcrMin = s[1].isEmpty ? 0.0 : s[1].reduce(math.min);
+      return [0.0, math.max(0.0, zcrMin * 0.98), 0.0, 0.0, 0.0];
+    }
+
+    // Raw：絶対値なので0起点で固定（崩れ防止）
+    return const [0.0, 0.0, 0.0, 0.0, 0.0];
+  }
+
+  List<double> _maxYsFor(DisplayMode mode, List<List<double>> s) {
+    if (mode == DisplayMode.zscore) return List.filled(5, 2.0);
+
+    if (mode == DisplayMode.calibrated) {
+      // ZCRは実数レンジの上限に5%余白＋きれいに丸める。他は1固定
+      final zcrMaxRaw = s[1].isEmpty ? 1.0 : s[1].reduce(math.max);
+      final zcrMax = _niceCeil(zcrMaxRaw * 1.05);
+      return [1.0, zcrMax, 1.0, 1.0, 1.0];
+    }
+
+    // Raw：列ごとの最大値→5%ヘッドルーム→1/2/5×10^k に丸め
+    return List.generate(5, (m) {
+      final v = s[m];
+      if (v.isEmpty) return 1.0;
+      final mx = v.reduce(math.max);
+      final up = _niceCeil(mx * 1.05);
+      return (up <= 0.0) ? 1.0 : up;
+    });
+  }
+
   // 🔽 ネイティブ録音連携用チャンネルとオーディオプレイヤー
   static const MethodChannel _channel = MethodChannel(
     'native_recorder',
@@ -585,11 +703,16 @@ class _RecorderPageState extends State<RecorderPage> {
         .map((values) => _calculateZScores(values))
         .toList();
 
+    // 🔽 結果行列をモードに応じた描画値へ変換＋Yレンジを用意
+    final plotValues = _buildChartSeriesFor(_mode); // 5本 × labels.length
+    final minYs = _minYsFor(_mode, plotValues);
+    final maxYs = _maxYsFor(_mode, plotValues);
+
     // ✅ グラフ全体をキャプチャ可能にする RepaintBoundary で囲む
     return RepaintBoundary(
       key: boundaryKey,
       child: GraphWidget(
-        zScores: zScoreList,
+        zScores: plotValues,
         labels: labels,
         titles: [
           AppLocalizations.of(context)!.rmsLabel,
@@ -607,6 +730,8 @@ class _RecorderPageState extends State<RecorderPage> {
         ],
         // ★ 追加：各グラフ用のキーを渡す
         perChartKeys: _chartKeys,
+        minYs: minYs, // ← 追加
+        maxYs: maxYs, // ← 追加
       ),
     );
   }
