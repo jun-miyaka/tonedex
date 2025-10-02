@@ -14,6 +14,10 @@ class GraphWidget extends StatelessWidget {
   final List<double>? minYs;
   final List<double>? maxYs;
 
+  // ★ 追加：モード依存の挙動をbool配列で受ける
+  final List<bool>? showLeftAxisLabels; // 指標ごとに左軸の数字を出すか
+  final List<bool>? zeroOneOnly; // 指標ごとに 0/1 だけ表示するか
+
   const GraphWidget({
     super.key,
     required this.zScores,
@@ -23,6 +27,9 @@ class GraphWidget extends StatelessWidget {
     this.perChartKeys, // ★ 追加
     this.minYs, // ★ 追加
     this.maxYs, // ★ 追加
+    // ★ 追加
+    this.showLeftAxisLabels,
+    this.zeroOneOnly,
   });
 
   double _niceCeil(double v) {
@@ -31,9 +38,9 @@ class GraphWidget extends StatelessWidget {
     final base = math.pow(10.0, log10.floorToDouble()).toDouble();
     final n = v / base; // [1,10)
     double step;
-    if (n <= 1.0)
+    if (n <= 1.0) {
       step = 1.0;
-    else if (n <= 2.0)
+    } else if (n <= 2.0)
       step = 2.0;
     else if (n <= 5.0)
       step = 5.0;
@@ -57,7 +64,7 @@ class GraphWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(zScores.length, (paramIndex) {
-          // ★ 追加：このグラフ（paramIndex）のY軸レンジ＆刻みを決定
+          // ★ 各チャートのYレンジと刻み計算（既存）
           final minYv = (minYs != null && minYs!.length > paramIndex)
               ? minYs![paramIndex]
               : -2.0;
@@ -66,7 +73,28 @@ class GraphWidget extends StatelessWidget {
               : 2.0;
           final span = (maxYv - minYv).abs();
           final interval = _niceIntervalForSpan(span);
+
           final values = safeZ(zScores, paramIndex, labels.length);
+
+          // ★ 追加：このチャート（paramIndex）の表示ルール（DisplayModeを使わない）
+          final bool showLabels =
+              (showLeftAxisLabels != null &&
+                  showLeftAxisLabels!.length > paramIndex)
+              ? showLeftAxisLabels![paramIndex]
+              : true;
+
+          final bool only01 =
+              (zeroOneOnly != null && zeroOneOnly!.length > paramIndex)
+              ? zeroOneOnly![paramIndex]
+              : false;
+
+          // ★★★ ここに“差し込み” ★★★
+          // Zレンジ（-2..2）や 0/1 表示のときは刻みを 1 に固定
+          final bool isZRange = (minYv == -2.0 && maxYv == 2.0);
+          final double leftAxisInterval = (only01 || isZRange) ? 1.0 : interval;
+          final double gridAxisInterval = (only01 || isZRange) ? 1.0 : interval;
+          // ★★★ ここまで差し込み ★★★
+
           return RepaintBoundary(
             key: (perChartKeys != null && perChartKeys!.length > paramIndex)
                 ? perChartKeys![paramIndex]
@@ -94,33 +122,60 @@ class GraphWidget extends StatelessWidget {
                       Expanded(
                         child: BarChart(
                           BarChartData(
-                            // ← ここを差し替え
+                            backgroundColor: Colors.transparent,
                             minY: minYv,
                             maxY: maxYv,
-                            // ← ここ以下はあなたの既存設定をそのまま残す
+
                             barTouchData: BarTouchData(
                               enabled: true,
                               touchTooltipData: BarTouchTooltipData(
                                 tooltipBgColor: Colors.black54,
                                 getTooltipItem:
-                                    (group, groupIndex, rod, rodIndex) {
-                                      return BarTooltipItem(
-                                        rod.toY.toStringAsFixed(2),
-                                        const TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.white,
+                                    (group, groupIndex, rod, rodIndex) =>
+                                        BarTooltipItem(
+                                          rod.toY.toStringAsFixed(2),
+                                          const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                          ),
                                         ),
-                                      );
-                                    },
                               ),
                             ),
+
+                            // 横線制御：0/1は 0,0.5,1 ／ Zは整数のみ
                             gridData: FlGridData(
-                              show: true,
-                              horizontalInterval: interval, // ★ 追加：グリッドも同じ刻みに
+                              show: true, // 念のため明示
                               drawHorizontalLine: true,
-                              getDrawingHorizontalLine: (_) =>
-                                  FlLine(color: Colors.grey, strokeWidth: 1),
+                              drawVerticalLine: false, // 仕様：縦グリッドなし
+                              // ★ 横線の刻みをモード別に切り替え（checkToShowHorizontalLineは使わない）
+                              horizontalInterval: (minYv == -2 && maxYv == 2)
+                                  ? 1.0 // Z-score：-2..+2 で整数線
+                                  : (((zeroOneOnly?[paramIndex] ?? false) &&
+                                            minYv == 0 &&
+                                            maxYv == 1)
+                                        ? 0.5 // 0–1レンジ(only01)：0, 0.5, 1 を出す
+                                        : (gridAxisInterval > 0
+                                              ? gridAxisInterval
+                                              : 1.0)), // フォールバック
+                              // ★ 0.5 の線だけ少し強調（RawのBRT・CalのRMS/CTR/BW/BRT）
+                              getDrawingHorizontalLine: (v) {
+                                final bool isMid =
+                                    ((zeroOneOnly?[paramIndex] ?? false) &&
+                                    minYv == 0 &&
+                                    maxYv == 1 &&
+                                    (v - 0.5).abs() < 1e-6);
+                                return FlLine(
+                                  color: isMid
+                                      ? Colors.black38
+                                      : Colors.black26,
+                                  strokeWidth: isMid ? 1.5 : 0.8,
+                                  dashArray: isMid
+                                      ? <int>[4, 4]
+                                      : null, // fl_chart は List<int>
+                                );
+                              },
                             ),
+
                             borderData: FlBorderData(
                               show: true,
                               border: const Border(
@@ -134,8 +189,28 @@ class GraphWidget extends StatelessWidget {
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                 sideTitles: SideTitles(
-                                  showTitles: true,
-                                  interval: interval, // ★ ここを固定1から置換
+                                  showTitles: showLabels,
+                                  interval: leftAxisInterval, // 0/1やZでは1刻み
+                                  reservedSize: 36,
+                                  getTitlesWidget: (value, meta) {
+                                    if (!showLabels) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    if (only01) {
+                                      final iv = value.round();
+                                      if (iv == 0 || iv == 1) {
+                                        return Text(
+                                          '$iv',
+                                          style: const TextStyle(fontSize: 10),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Text(
+                                      value.toStringAsFixed(0),
+                                      style: const TextStyle(fontSize: 10),
+                                    );
+                                  },
                                 ),
                               ),
                               bottomTitles: AxisTitles(
@@ -143,6 +218,9 @@ class GraphWidget extends StatelessWidget {
                                   showTitles: true,
                                   getTitlesWidget: (value, meta) {
                                     final index = value.toInt();
+                                    if (index < 0 || index >= labels.length) {
+                                      return const SizedBox.shrink();
+                                    }
                                     return SideTitleWidget(
                                       axisSide: meta.axisSide,
                                       space: 8,
@@ -158,19 +236,14 @@ class GraphWidget extends StatelessWidget {
                                   },
                                 ),
                               ),
-                              topTitles: AxisTitles(
+                              topTitles: const AxisTitles(
                                 sideTitles: SideTitles(showTitles: false),
                               ),
-                              rightTitles: AxisTitles(
+                              rightTitles: const AxisTitles(
                                 sideTitles: SideTitles(showTitles: false),
                               ),
                             ),
                             barGroups: List.generate(labels.length, (i) {
-                              final values = safeZ(
-                                zScores,
-                                paramIndex,
-                                labels.length,
-                              );
                               return BarChartGroupData(
                                 x: i,
                                 barRods: [
@@ -181,7 +254,7 @@ class GraphWidget extends StatelessWidget {
                                     color: Colors.blueAccent,
                                   ),
                                 ],
-                                showingTooltipIndicators: [0],
+                                showingTooltipIndicators: const [0],
                               );
                             }),
                           ),

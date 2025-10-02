@@ -185,9 +185,9 @@ class _RecorderPageState extends State<RecorderPage> {
     final pow10 = math.pow(10.0, log10.floorToDouble()).toDouble();
     final n = v / pow10; // [1,10)
     double step;
-    if (n <= 1.0)
+    if (n <= 1.0) {
       step = 1.0;
-    else if (n <= 2.0)
+    } else if (n <= 2.0)
       step = 2.0;
     else if (n <= 5.0)
       step = 5.0;
@@ -222,6 +222,7 @@ class _RecorderPageState extends State<RecorderPage> {
 
     // Raw：列ごとの最大値→5%ヘッドルーム→1/2/5×10^k に丸め
     return List.generate(5, (m) {
+      if (m == 4) return 1.0; // ★ Brightness（Raw）は 1.0 固定
       final v = s[m];
       if (v.isEmpty) return 1.0;
       final mx = v.reduce(math.max);
@@ -516,18 +517,23 @@ class _RecorderPageState extends State<RecorderPage> {
       await _checkPermissions();
 
       final dir = await getApplicationDocumentsDirectory();
-      final now = DateTime.now();
-      final fileName =
-          '${now.year}${_pad2(now.month)}${_pad2(now.day)}_${_pad2(now.hour)}${_pad2(now.minute)}${_pad2(now.second)}.wav';
-      final filePath = '${dir.path}/$fileName';
+      // ★ recordings ディレクトリを確実に作成
+      final recDir = Directory('${dir.path}/recordings');
+      if (!await recDir.exists()) {
+        await recDir.create(recursive: true);
+      }
 
-      _currentFilePath = filePath; // 🔸 後で stopRecording で使う
+      // ★ ファイル名はヘルパから取得（常に .wav）
+      final relPath =
+          _generateFileName(); // e.g. 'recordings/20251001_123456.wav'
+      final filePath = '${dir.path}/$relPath';
+
+      _currentFilePath = filePath; // stopRecording で使う
       await _channel.invokeMethod('startRecording', {'path': filePath});
 
-      setState(() {
-        isRecording = true;
-      });
+      setState(() => isRecording = true);
 
+      // ※ 自動停止は運用に合わせて
       Future.delayed(const Duration(seconds: 5), () async {
         if (!mounted || !isRecording) return;
         await _stopRecording();
@@ -543,22 +549,29 @@ class _RecorderPageState extends State<RecorderPage> {
   // 🔽 録音停止処理（録音フラグを下ろす）
   Future<void> _stopRecording() async {
     try {
-      await _channel.invokeMethod('stopRecording');
-      setState(() {
-        isRecording = false;
-      });
+      // ★ ネイティブから保存済みのファイルパスを受け取る（.wav）
+      final String? savedPath = await _channel.invokeMethod<String>(
+        'stopRecording',
+      );
 
-      if (_currentFilePath != null && File(_currentFilePath!).existsSync()) {
+      setState(() => isRecording = false);
+
+      // ★ 返ってきたパスを優先（_currentFilePath はフォールバック）
+      final path = savedPath ?? _currentFilePath;
+
+      if (path != null && File(path).existsSync()) {
         setState(() {
-          fileNames.add(_currentFilePath!); // 🔸 録音終了時に追加
-          // ✅ ラベルも初期登録（例：20250718_220101）
-          final label = _currentFilePath!
-              .split('/')
-              .last
-              .replaceAll('.wav', '');
+          fileNames.add(path); // 録音終了時に追加
+
+          // ラベルも初期登録（例：20250718_220101）
+          final label = path.split('/').last.replaceAll('.wav', '');
           labels.add(label);
         });
-        // 🔽 ここを追加
+
+        // ヘッダ書き込みのタイミングを安全側に（数十msでOK）
+        await Future.delayed(const Duration(milliseconds: 30));
+
+        // 一覧・グラフを再読込
         await _loadRecordings();
       }
     } on PlatformException catch (e) {
@@ -594,10 +607,10 @@ class _RecorderPageState extends State<RecorderPage> {
       builder: (context) => AlertDialog(
         title: Text(
           AppLocalizations.of(context)!.editLabel,
-        ), // ← localized from "ラベル名を編集 (最大8文字)",
+        ), // ← localized from "ラベル名を編集 (最大12文字)",
         content: TextField(
           controller: controller,
-          maxLength: 8,
+          maxLength: 12,
           decoration: InputDecoration(hintText: '新しいラベル名'),
         ),
         actions: [
@@ -708,6 +721,21 @@ class _RecorderPageState extends State<RecorderPage> {
     final minYs = _minYsFor(_mode, plotValues);
     final maxYs = _maxYsFor(_mode, plotValues);
 
+    // ▼ ここからモードに依存する“表示フラグ”は毎回生成（finalにしない）
+    final showNumberLabels = List<bool>.generate(5, (i) {
+      if (_mode == DisplayMode.zscore) return true; // Z-score: 全部表示
+      if (_mode == DisplayMode.raw) return i == 4; // Raw: Brightnessのみ表示
+      /* Calibrated */
+      return i != 1; // Cal: ZCRだけ非表示
+    });
+
+    final zeroOneOnly = List<bool>.generate(5, (i) {
+      if (_mode == DisplayMode.zscore) return false; // Z-score: 通常表示
+      if (_mode == DisplayMode.raw) return i == 4; // Raw: Brightnessのみ0/1
+      /* Calibrated */
+      return i != 1; // Cal: ZCR以外は0/1だけ
+    });
+
     // ✅ グラフ全体をキャプチャ可能にする RepaintBoundary で囲む
     return RepaintBoundary(
       key: boundaryKey,
@@ -732,6 +760,9 @@ class _RecorderPageState extends State<RecorderPage> {
         perChartKeys: _chartKeys,
         minYs: minYs, // ← 追加
         maxYs: maxYs, // ← 追加
+        // ★ 追加（新規）
+        showLeftAxisLabels: showNumberLabels,
+        zeroOneOnly: zeroOneOnly,
       ),
     );
   }
