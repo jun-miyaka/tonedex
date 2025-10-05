@@ -182,7 +182,7 @@ abstract class AppLocalizations {
   /// No description provided for @howToUseDescription.
   ///
   /// In en, this message translates to:
-  /// **'Press the recording button and play a note. Recording will stop automatically after 5 seconds. You can record multiple times to compare different settings. Files are saved in the app and can be played, renamed, analyzed, or deleted.'**
+  /// **'Tap the Record button and play a specific note on your instrument. Recording stops automatically after 5 seconds.\nYou can record multiple takes. Try different setups and playing styles.\n\nAll takes are saved in the app. Use the Play button to listen back.\n\nUse the Trash button to delete a take and the Pencil button to rename it.\n\nTap Analyze to compute sound-quality parameters for each take and show the results. If you have multiple takes, a bar chart will compare them. Use the toggle at the top-right to switch between Raw data and Z-score views.\n\nInterpret your instrument’s tone from the numbers and the chart.\n\nBrightness is auto-scaled for readability using the recent data distribution (P5–P95). The stored value remains the raw 0.0–1.0.\n\nYou can share the numeric results and charts via the Share button.'**
   String get howToUseDescription;
 
   /// No description provided for @analysisParameters.
@@ -370,6 +370,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Buy Me a Coffee'**
   String get buyMeACoffee;
+
+  /// No description provided for @displayModeRaw.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw data'**
+  String get displayModeRaw;
+
+  /// No description provided for @displayModeZscore.
+  ///
+  /// In en, this message translates to:
+  /// **'Z-score'**
+  String get displayModeZscore;
+
+  /// No description provided for @aboutToneMapper.
+  ///
+  /// In en, this message translates to:
+  /// **'About ToneMapper'**
+  String get aboutToneMapper;
+
+  /// No description provided for @howToUseToneMapper.
+  ///
+  /// In en, this message translates to:
+  /// **'ToneMapper visualizes tone changes in real time while you play. It shows parameters such as RMS (Root Mean Square), ZCR (Zero-Crossing Rate), and Brightness (high-frequency ratio). Try playing and see how the tone moves.'**
+  String get howToUseToneMapper;
+
+  /// No description provided for @toneMapperTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ToneMapper'**
+  String get toneMapperTitle;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

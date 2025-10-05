@@ -3,6 +3,166 @@ import 'dart:math';
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // compute() のために必要
 
+double _rmsLinear(List<double> x) {
+  double s2 = 0.0;
+  for (final v in x) {
+    s2 += v * v;
+  }
+  return sqrt(s2 / (x.isEmpty ? 1 : x.length));
+}
+
+double _dbfsFromRms(double rmsLinear, {double ref = 32768.0}) {
+  if (rmsLinear <= 1e-12) return -120.0;
+  return 20.0 * (log(rmsLinear / ref) / ln10);
+}
+
+// ▼▼ 追加：RMS影響除去のユーティリティ ▼▼
+List<double> levelNormalizeForSpectrum(
+  List<double> x, {
+  double targetDbFS = -20.0,
+  double ref = 32768.0,
+  double maxGainDb = 24.0,
+}) {
+  final rms = _rmsLinear(x);
+  if (rms <= 1e-12) return x; // 無音は何もしない
+  final curDb = _dbfsFromRms(rms, ref: ref);
+  final gainDb = targetDbFS - curDb;
+  final clamped = gainDb.clamp(-maxGainDb, maxGainDb);
+  final g = pow(10.0, clamped / 20.0) as double;
+  return x.map((v) => v * g).toList(growable: false);
+}
+
+/// |X[k]| を受け取り、パワー→総和=1 の分布 p[k] に変換
+List<double> toProbSpecFromMagnitudes(List<double> magnitudes) {
+  final List<double> pwr = List<double>.generate(magnitudes.length, (i) {
+    final m = magnitudes[i];
+    return m * m; // パワー
+  }, growable: false);
+  final sum = pwr.fold<double>(0.0, (a, b) => a + b);
+  if (sum <= 0) return List<double>.filled(pwr.length, 0.0);
+  return List<double>.generate(
+    pwr.length,
+    (i) => pwr[i] / sum,
+    growable: false,
+  );
+}
+
+// ===== BEGIN PATCH: calculateBrightnessFromSamples (power-of-2 padding) =====
+
+// まだ無ければヘルパー関数も一緒に追加（既に定義済みなら重複しないように）
+bool _isPowerOf2(int n) => n > 0 && (n & (n - 1)) == 0;
+int _nextPowerOf2(int n) {
+  int p = 1;
+  while (p < n) {
+    p <<= 1;
+  }
+  return p;
+}
+
+/// decimation後の波形から Brightness を計算（FFT長は2の冪に強制）
+double calculateBrightnessFromDecimated(
+  List<double> decimated,
+  int sampleRate,
+) {
+  if (decimated.isEmpty || sampleRate <= 0) return 0.0;
+
+  // 1) 長さを2の冪に（超過分は切り詰め）
+  int fftSize = decimated.length;
+  // _floorPowerOf2 の代わりにローカルで計算
+  int floorPow2 = 1;
+  while ((floorPow2 << 1) <= fftSize) {
+    floorPow2 <<= 1;
+  }
+  if (floorPow2 != fftSize) {
+    if (floorPow2 <= 0) return 0.0;
+    decimated = List<double>.from(decimated.getRange(0, floorPow2));
+    fftSize = floorPow2;
+  }
+
+  // 2) FFT → |X[k]|（片側）
+  final spectrum = fft(decimated);
+  final List<double> mags = List<double>.generate(
+    fftSize ~/ 2,
+    (i) => spectrum[i].abs(),
+    growable: false,
+  );
+
+  // 3) p[k] 正規化は calculateBrightnessIndex(...) 内で実施
+  return calculateBrightnessIndex(mags, sampleRate);
+}
+// === END ===
+
+double _binFreq(int k, int sampleRate, int fftSize) =>
+    (sampleRate.toDouble() * k) / fftSize;
+
+double centroidFromProbSpec(List<double> p, int sampleRate, int fftSize) {
+  double c = 0.0;
+  for (int k = 0; k < p.length; k++) {
+    c += _binFreq(k, sampleRate, fftSize) * p[k];
+  }
+  return c;
+}
+
+double bandwidthFromProbSpec(
+  List<double> p,
+  int sampleRate,
+  int fftSize, {
+  double? centroidHz,
+}) {
+  final c = centroidHz ?? centroidFromProbSpec(p, sampleRate, fftSize);
+  double s = 0.0;
+  for (int k = 0; k < p.length; k++) {
+    final f = _binFreq(k, sampleRate, fftSize);
+    final d = f - c;
+    s += (d * d) * p[k];
+  }
+  return sqrt(s);
+}
+
+double brightnessFromProbSpec(
+  List<double> p,
+  int sampleRate,
+  int fftSize, {
+  double cutoffHz = 4000.0,
+}) {
+  double hi = 0.0;
+  for (int k = 0; k < p.length; k++) {
+    final f = _binFreq(k, sampleRate, fftSize);
+    if (f >= cutoffHz) hi += p[k];
+  }
+  return hi; // 0–1
+}
+// ▲▲ 追加ここまで ▲▲
+
+// 波形 samples → 正規化 → 2の冪にゼロパディング → FFT → |X[k]| → Brightness
+double calculateBrightnessFromSamples(List<double> samples, int sampleRate) {
+  // 1) レベル正規化（RMS影響除去の前処理）
+  final norm = levelNormalizeForSpectrum(samples, targetDbFS: -20.0);
+
+  // 2) FFT入力長を 2の冪に揃える（足りない分は0パディング）
+  final int fftSize = _isPowerOf2(norm.length)
+      ? norm.length
+      : _nextPowerOf2(norm.length);
+  final List<double> buf = (fftSize == norm.length)
+      ? norm
+      : (() {
+          final out = List<double>.filled(fftSize, 0.0);
+          out.setRange(0, norm.length, norm);
+          return out;
+        })();
+
+  // 3) FFT → 片側 |X[k]| を作る
+  final spectrum = fft(buf);
+  final List<double> mags = List<double>.generate(
+    fftSize ~/ 2,
+    (i) => spectrum[i].abs(),
+    growable: false,
+  );
+
+  // 4) ✅ 無限再帰はダメ。Brightnessは magnitudes から計算する
+  return calculateBrightnessIndex(mags, sampleRate);
+}
+
 // 複素数クラス定義（FFTで使用）
 class Complex {
   final double re;
@@ -50,25 +210,26 @@ List<Complex> fft(List<double> input) {
 }
 
 // スペクトル重心（Centroid）計算
+//従後（RMS非依存の定義へ）
 double calculateSpectralCentroid(List<double> samples, int sampleRate) {
   if (samples.isEmpty || sampleRate <= 0) return 0.0;
-
   try {
-    final n = samples.length;
-    final spectrum = fft(samples);
-    final freqs = List.generate(n ~/ 2, (i) => i * sampleRate / n);
+    // ① レベル正規化（極端なレベル差の影響を抑える）
+    final norm = levelNormalizeForSpectrum(samples, targetDbFS: -20.0);
 
-    double numerator = 0.0;
-    double denominator = 0.0;
+    // ② FFT → |X[k]| → p[k]
+    final n = norm.length;
+    final spectrum = fft(norm);
+    final magnitudes = List<double>.generate(
+      n ~/ 2,
+      (i) => spectrum[i].abs(),
+      growable: false,
+    );
+    final p = toProbSpecFromMagnitudes(magnitudes);
 
-    for (int i = 0; i < freqs.length; i++) {
-      final mag = spectrum[i].abs();
-      numerator += freqs[i] * mag;
-      denominator += mag;
-    }
-
-    if (denominator == 0.0) return 0.0;
-    return double.parse((numerator / denominator).toStringAsFixed(3));
+    // ③ p[k] で重み付け（RMSから実質独立）
+    final c = centroidFromProbSpec(p, sampleRate, n);
+    return double.parse(c.toStringAsFixed(3));
   } catch (e) {
     print('❌ Centroid 計算中にエラー: $e');
     return 0.0;
@@ -76,29 +237,27 @@ double calculateSpectralCentroid(List<double> samples, int sampleRate) {
 }
 
 // スペクトル帯域幅（Bandwidth）計算
+//従後（RMS非依存の定義へ）
 double calculateSpectralBandwidth(List<double> samples, int sampleRate) {
   if (samples.isEmpty || sampleRate <= 0) return 0.0;
-
   try {
-    final n = samples.length;
-    final spectrum = fft(samples);
-    final freqs = List.generate(n ~/ 2, (i) => i * sampleRate / n);
-    final centroid = calculateSpectralCentroid(samples, sampleRate);
+    // ① レベル正規化
+    final norm = levelNormalizeForSpectrum(samples, targetDbFS: -20.0);
 
-    double sum = 0.0;
-    double weight = 0.0;
+    // ② FFT → |X[k]| → p[k]
+    final n = norm.length;
+    final spectrum = fft(norm);
+    final magnitudes = List<double>.generate(
+      n ~/ 2,
+      (i) => spectrum[i].abs(),
+      growable: false,
+    );
+    final p = toProbSpecFromMagnitudes(magnitudes);
 
-    for (int i = 0; i < freqs.length; i++) {
-      final mag = spectrum[i].abs();
-      final diff = freqs[i] - centroid;
-      sum += diff * diff * mag;
-      weight += mag;
-    }
-
-    print('📊 Bandwidth 中間値: sum=$sum, weight=$weight');
-
-    if (weight == 0.0) return 0.0;
-    return double.parse((sqrt(sum / weight)).toStringAsFixed(3));
+    // ③ p[k] で帯域幅
+    final c = centroidFromProbSpec(p, sampleRate, n);
+    final b = bandwidthFromProbSpec(p, sampleRate, n, centroidHz: c);
+    return double.parse(b.toStringAsFixed(3));
   } catch (e) {
     print('❌ Bandwidth 計算中にエラー: $e');
     return 0.0;
@@ -188,7 +347,10 @@ List<double> _analyzeInIsolate(Uint8List bytes) {
     'Bandwidth',
   );
   final brightness = safe(
-    () => calculateBrightnessIndex(magnitudes, 44100),
+    () => calculateBrightnessFromDecimated(
+      decimated,
+      44100,
+    ), // ← “decimation 完了: 32768 samples” の配列
     'Brightness',
   );
 
@@ -243,21 +405,34 @@ double calculateZCR(List<double> samples, int sampleRate) {
 }
 
 // brightness（明るさ指標）計算
+// 従後（RMS非依存：パワー正規化 p[k] を使用）
 double calculateBrightnessIndex(List<double> magnitudes, int sampleRate) {
+  // magnitudes は |X[k]| を想定（長さ = fftSize/2）
   final int fftSize = magnitudes.length * 2;
-  final double binFreq = sampleRate / fftSize;
+  final double binFreq = sampleRate.toDouble() / fftSize;
 
-  double energyTotal = 0.0;
-  double energyHigh = 0.0;
+  // |X[k]| → パワー → 総和=1 の分布 p[k]
+  final List<double> p = toProbSpecFromMagnitudes(magnitudes);
 
-  for (int i = 0; i < magnitudes.length; i++) {
-    final freq = binFreq * i;
-    final mag = magnitudes[i];
-    energyTotal += mag;
-    if (freq > 2000) {
-      energyHigh += mag;
+  double hi = 0.0;
+  for (int i = 0; i < p.length; i++) {
+    final double freq = binFreq * i;
+    if (freq >= 4000.0) {
+      hi += p[i];
     }
   }
 
-  return energyHigh / (energyTotal + 1e-6);
+  // --- デバッグ用（必要なときだけ） ---
+  final int fftSizeDerived = p.length * 2; // pは半分長なのでここから復元
+  final int cutoffIndex = ((4000.0 * fftSizeDerived) / sampleRate).floor();
+  final double sumP = p.fold<double>(0.0, (a, b) => a + b);
+
+  // 同じpを使ってCentroidを再計算（Centroid側と一致するか検証）
+  final double centroidFromSameP = centroidFromProbSpec(
+    p,
+    sampleRate,
+    fftSizeDerived,
+  );
+
+  return hi; // 0–1
 }

@@ -51,7 +51,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get howToUse => 'How to use';
 
   @override
-  String get howToUseDescription => 'Press the recording button and play a note. Recording will stop automatically after 5 seconds. You can record multiple times to compare different settings. Files are saved in the app and can be played, renamed, analyzed, or deleted.';
+  String get howToUseDescription => 'Tap the Record button and play a specific note on your instrument. Recording stops automatically after 5 seconds.\nYou can record multiple takes. Try different setups and playing styles.\n\nAll takes are saved in the app. Use the Play button to listen back.\n\nUse the Trash button to delete a take and the Pencil button to rename it.\n\nTap Analyze to compute sound-quality parameters for each take and show the results. If you have multiple takes, a bar chart will compare them. Use the toggle at the top-right to switch between Raw data and Z-score views.\n\nInterpret your instrument’s tone from the numbers and the chart.\n\nBrightness is auto-scaled for readability using the recent data distribution (P5–P95). The stored value remains the raw 0.0–1.0.\n\nYou can share the numeric results and charts via the Share button.';
 
   @override
   String get analysisParameters => 'Analysis Parameters';
@@ -145,4 +145,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get buyMeACoffee => 'Buy Me a Coffee';
+
+  @override
+  String get displayModeRaw => 'Raw data';
+
+  @override
+  String get displayModeZscore => 'Z-score';
+
+  @override
+  String get aboutToneMapper => 'About ToneMapper';
+
+  @override
+  String get howToUseToneMapper => 'ToneMapper visualizes tone changes in real time while you play. It shows parameters such as RMS (Root Mean Square), ZCR (Zero-Crossing Rate), and Brightness (high-frequency ratio). Try playing and see how the tone moves.';
+
+  @override
+  String get toneMapperTitle => 'ToneMapper';
 }

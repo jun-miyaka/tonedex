@@ -41,6 +41,9 @@ dependencies:
   shared_preferences: ^2.2.2       # 設定情報保存などに使用
   url_launcher: ^6.2.5
 
+  sound_palette:
+    path: "../../SoundPalette"   # ← あなたの実際の相対パスに合わせる
+
   flutter_localizations:
     sdk: flutter
 

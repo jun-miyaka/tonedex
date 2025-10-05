@@ -17,9 +17,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sax_app/l10n/app_localizations.dart';
 // ← これを使う
+import 'package:sound_palette/sound_palette.dart'; // ← pubspec の path 依存で使えるように
 
 // ▼ Calibrated/Z-score 表示モード
-enum DisplayMode { raw, calibrated, zscore }
+enum DisplayMode { raw, zscore }
 
 // ▼ 解析が 44.1kHz 前提なら固定。将来、実サンプルレートを持っている場合は置換してください。
 const int _kFs = 44100;
@@ -27,9 +28,10 @@ const double _kNyq = _kFs / 2.0; // = 22050.0
 const double _kRmsRef = 20000.0; // とりあえず 2e4。様子を見て18k〜22kで微調整
 
 // ▼ 画面状態にモードを追加（既定は Calibrated）
-DisplayMode _mode = DisplayMode.calibrated;
+DisplayMode _mode = DisplayMode.raw;
 
 // ▼ Calibrated用の値変換（表示専用。元データ results[][] はそのまま Raw）
+/* // [HIDDEN] calibrated mapping (kept for future reference)
 double _toCalibrated(String metric, double raw) {
   switch (metric) {
     case 'Centroid':
@@ -45,6 +47,46 @@ double _toCalibrated(String metric, double raw) {
       return raw;
   }
 }
+*/
+
+// ===== BEGIN PATCH: Auto-scale helpers (P5–P95) =====
+
+double _quantileOfSorted(List<double> sorted, double q) {
+  if (sorted.isEmpty) return 0.0;
+  final n = sorted.length;
+  final pos = (q.clamp(0.0, 1.0) * (n - 1));
+  final i = pos.floor();
+  final f = pos - i;
+  if (i + 1 >= n) return sorted.last;
+  return sorted[i] * (1 - f) + sorted[i + 1] * f;
+}
+
+/// 直近window本の分布（P5–P95）で 0..1 に線形スケーリング（表示専用）
+/// - values: 過去→最新の順の配列（BrightnessのRaw）
+/// - window: 使う本数の上限（例: 50）
+/// - 返り値: 変換後の 0..1 配列（長さはvaluesと同じ）
+List<double> _autoScaleP5P95(
+  List<double> values, {
+  int window = 50,
+  double eps = 1e-6,
+}) {
+  if (values.isEmpty) return const [];
+  final take = values.length < window ? values.length : window;
+  final recent = values.sublist(values.length - take);
+  final sorted = [...recent]..sort();
+  final p5 = _quantileOfSorted(sorted, 0.05);
+  final p95 = _quantileOfSorted(sorted, 0.95);
+  final denom = (p95 - p5).abs();
+  return values
+      .map((x) {
+        if (denom < eps) return 0.0;
+        final z = (x - p5) / denom;
+        return z.clamp(0.0, 1.0);
+      })
+      .toList(growable: false);
+}
+
+// ===== END PATCH =====
 
 // ▼ Zスコア（1列分の値配列 → Z配列）
 List<double> _zScoresOf(List<double> values) {
@@ -79,19 +121,19 @@ class _RecorderPageState extends State<RecorderPage> {
   int _loadGen = 0; // リスト更新の世代ID（競合回避）
 
   // ← クラスの中、build()より上
-  String _modeLabel() {
+  String _modeLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     switch (_mode) {
       case DisplayMode.raw:
-        return 'Raw';
-      case DisplayMode.calibrated:
-        return 'Calibrated';
+        return l10n.displayModeRaw;
       case DisplayMode.zscore:
-        return 'Z-score';
+        return l10n.displayModeZscore;
     }
   }
 
   // _RecorderPageState 内（build()より上）
-  Widget _buildModeBadge() {
+  Widget _buildModeBadge(BuildContext context) {
+    final modeLabel = _modeLabel(context);
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Container(
@@ -101,11 +143,7 @@ class _RecorderPageState extends State<RecorderPage> {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'Mode: ${_mode == DisplayMode.raw
-              ? 'Raw'
-              : _mode == DisplayMode.calibrated
-              ? 'Calibrated'
-              : 'Z-score'}',
+          'Mode: $modeLabel', // 「Mode: 」もARB化したければ l10n.modePrefix を作成
           style: const TextStyle(fontSize: 12, color: Colors.white70),
         ),
       ),
@@ -120,6 +158,16 @@ class _RecorderPageState extends State<RecorderPage> {
     'Bandwidth',
     'Brightness',
   ];
+
+  void _openToneMapper(BuildContext context) {
+    // 録音中を止めたいならここで（任意）
+    // _stopIfRecording();
+
+    Navigator.of(context).pop(); // Drawerを閉じる
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SoundPalettePage()));
+  }
 
   // Zスコア（既に _zScoresOf があるならそれを使ってOK。無ければこれを置く）
   List<double> _zScoresOf(List<double> values) {
@@ -139,31 +187,18 @@ class _RecorderPageState extends State<RecorderPage> {
   List<List<double>> _buildChartSeriesFor(DisplayMode mode) {
     final n = labels.length;
     final series = List.generate(5, (_) => <double>[]);
+
     if (mode == DisplayMode.zscore) {
+      // 各列の Raw 値から Z を作成
       for (int m = 0; m < 5; m++) {
-        final name = _kMetrics[m];
-        final colCal = <double>[];
+        final col = <double>[];
         for (int i = 0; i < n; i++) {
           final raw = (results.length > i && results[i].length >= 5)
               ? results[i][m]
               : 0.0;
-          final cal = (m == 1)
-              ? raw
-              : _toCalibrated(name, raw); // ZCRだけ生値（cross/s）
-          colCal.add(cal);
+          col.add(raw);
         }
-        series[m] = _zScoresOf(colCal);
-      }
-    } else if (mode == DisplayMode.calibrated) {
-      for (int m = 0; m < 5; m++) {
-        final name = _kMetrics[m];
-        for (int i = 0; i < n; i++) {
-          final raw = (results.length > i && results[i].length >= 5)
-              ? results[i][m]
-              : 0.0;
-          final v = (m == 1) ? raw : _toCalibrated(name, raw); // ZCRは実数
-          series[m].add(v);
-        }
+        series[m] = _zScoresOf(col);
       }
     } else {
       // Raw
@@ -174,6 +209,14 @@ class _RecorderPageState extends State<RecorderPage> {
               : 0.0;
           series[m].add(raw);
         }
+      }
+      // ★ ここで Brightness 列（index=4）だけ 0..1 にオートスケール（表示専用）
+      const kBrightnessIndex = 4;
+      if (series[kBrightnessIndex].isNotEmpty) {
+        series[kBrightnessIndex] = _autoScaleP5P95(
+          series[kBrightnessIndex],
+          window: 50,
+        );
       }
     }
     return series;
@@ -200,25 +243,12 @@ class _RecorderPageState extends State<RecorderPage> {
   List<double> _minYsFor(DisplayMode mode, List<List<double>> s) {
     if (mode == DisplayMode.zscore) return List.filled(5, -2.0);
 
-    if (mode == DisplayMode.calibrated) {
-      // ZCRのみ実数。下限は最小の98%まで少しだけ余裕、他は0固定
-      final zcrMin = s[1].isEmpty ? 0.0 : s[1].reduce(math.min);
-      return [0.0, math.max(0.0, zcrMin * 0.98), 0.0, 0.0, 0.0];
-    }
-
     // Raw：絶対値なので0起点で固定（崩れ防止）
     return const [0.0, 0.0, 0.0, 0.0, 0.0];
   }
 
   List<double> _maxYsFor(DisplayMode mode, List<List<double>> s) {
     if (mode == DisplayMode.zscore) return List.filled(5, 2.0);
-
-    if (mode == DisplayMode.calibrated) {
-      // ZCRは実数レンジの上限に5%余白＋きれいに丸める。他は1固定
-      final zcrMaxRaw = s[1].isEmpty ? 1.0 : s[1].reduce(math.max);
-      final zcrMax = _niceCeil(zcrMaxRaw * 1.05);
-      return [1.0, zcrMax, 1.0, 1.0, 1.0];
-    }
 
     // Raw：列ごとの最大値→5%ヘッドルーム→1/2/5×10^k に丸め
     return List.generate(5, (m) {
@@ -276,42 +306,36 @@ class _RecorderPageState extends State<RecorderPage> {
     }
     final mode = override ?? _mode;
     final v = results[index];
-    final metrics = const ['RMS', 'ZCR', 'Centroid', 'Bandwidth', 'Brightness'];
+    const metrics = ['RMS', 'ZCR', 'Centroid', 'Bandwidth', 'Brightness'];
 
+    // ▼ Z-scoreは「Raw列」から直接作る（_toCalibratedは使わない）
     double z(int col) {
-      final colVals = [
-        for (final row in results)
-          if (row.length >= 5) _toCalibrated(metrics[col], row[col]), // ← ここを通す
-      ];
+      final colVals = <double>[];
+      for (final row in results) {
+        if (row.length >= 5) {
+          colVals.add(row[col]); // Rawをそのまま
+        }
+      }
       final zs = _zScoresOf(colVals);
       return (index < zs.length) ? zs[index] : 0.0;
     }
 
     String fmt(String name, int col) {
-      switch (mode) {
-        case DisplayMode.raw:
-          return '$name: ${v[col].toStringAsFixed(3)}';
-        case DisplayMode.calibrated:
-          if (name == 'ZCR') {
-            return '$name: ${v[col].round()} cross/s';
-          } else {
-            final cal = _toCalibrated(name, v[col]);
-            return '$name: ${(cal * 100).toStringAsFixed(0)}%';
-          }
-        case DisplayMode.zscore:
-          final zv = z(col);
-          return '$name: ${zv.toStringAsFixed(2)}';
+      if (mode == DisplayMode.zscore) {
+        final zv = z(col);
+        return '$name: ${zv.toStringAsFixed(2)}';
+      } else {
+        // Raw 表示（ZCRだけ単位つきで見やすく）
+        if (name == 'ZCR') {
+          return '$name: ${v[col].round()} cross/s';
+        }
+        return '$name: ${v[col].toStringAsFixed(3)}';
       }
     }
 
-    final lines = <String>[
-      fmt(metrics[0], 0),
-      fmt(metrics[1], 1),
-      fmt(metrics[2], 2),
-      fmt(metrics[3], 3),
-      fmt(metrics[4], 4),
-    ];
-    return lines.join('\n');
+    return [
+      for (var i = 0; i < metrics.length; i++) fmt(metrics[i], i),
+    ].join('\n');
   }
 
   // 共有テキストを3種（Raw / Calibrated / Z-score）で出力し、共有シートを開く
@@ -323,27 +347,27 @@ class _RecorderPageState extends State<RecorderPage> {
         .substring(0, 15);
 
     String buildSection(DisplayMode m) {
-      final label = (m == DisplayMode.raw)
-          ? 'Raw'
-          : (m == DisplayMode.calibrated ? 'Calibrated' : 'Z-score');
+      // ← Calibrated を参照しない2択に変更
+      final label = (m == DisplayMode.raw) ? 'Raw' : 'Z-score';
+
       final body = List.generate(fileNames.length, (i) {
         final name = labels[i];
         final ok = results.length > i && results[i].length == 5;
         final lines = ok
-            ? _formatRecordLines(i, /*現在の描画モードではなく*/ override: m)
+            ? _formatRecordLines(i, /* 現在の描画モードではなく */ override: m)
             : AppLocalizations.of(context)!.notAnalyzedOrIncomplete;
         return '$name\n$lines';
       }).join('\n\n');
+
       return '[$label]\n$body';
     }
 
     final textRaw = buildSection(DisplayMode.raw);
-    final textCal = buildSection(DisplayMode.calibrated);
     final textZ = buildSection(DisplayMode.zscore);
 
-    // 1) テキストを書き出す
+    // 1) テキストを書き出す（Calibrated抜き）
     final textFile = File('${dir.path}/analysis_results_$ts.txt');
-    await textFile.writeAsString([textRaw, textCal, textZ].join('\n\n'));
+    await textFile.writeAsString([textRaw, textZ].join('\n\n'));
 
     // 2) チャート画像をキャプチャ（あれば）
     final xfiles = <XFile>[XFile(textFile.path)];
@@ -723,17 +747,13 @@ class _RecorderPageState extends State<RecorderPage> {
 
     // ▼ ここからモードに依存する“表示フラグ”は毎回生成（finalにしない）
     final showNumberLabels = List<bool>.generate(5, (i) {
-      if (_mode == DisplayMode.zscore) return true; // Z-score: 全部表示
-      if (_mode == DisplayMode.raw) return i == 4; // Raw: Brightnessのみ表示
-      /* Calibrated */
-      return i != 1; // Cal: ZCRだけ非表示
+      if (_mode == DisplayMode.zscore) return true; // Z-score: 全表示
+      return i == 4; // Raw: Brightnessのみ数値ラベル
     });
 
     final zeroOneOnly = List<bool>.generate(5, (i) {
-      if (_mode == DisplayMode.zscore) return false; // Z-score: 通常表示
-      if (_mode == DisplayMode.raw) return i == 4; // Raw: Brightnessのみ0/1
-      /* Calibrated */
-      return i != 1; // Cal: ZCR以外は0/1だけ
+      if (_mode == DisplayMode.zscore) return false; // Z-score: 通常目盛
+      return i == 4; // Raw: Brightnessのみ 0/1 目盛
     });
 
     // ✅ グラフ全体をキャプチャ可能にする RepaintBoundary で囲む
@@ -792,13 +812,15 @@ class _RecorderPageState extends State<RecorderPage> {
           PopupMenuButton<DisplayMode>(
             initialValue: _mode,
             onSelected: (m) => setState(() => _mode = m),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: DisplayMode.raw, child: Text('Raw')),
+            itemBuilder: (_) => [
               PopupMenuItem(
-                value: DisplayMode.calibrated,
-                child: Text('Calibrated'),
+                value: DisplayMode.raw,
+                child: Text(l10n.displayModeRaw),
               ),
-              PopupMenuItem(value: DisplayMode.zscore, child: Text('Z-score')),
+              PopupMenuItem(
+                value: DisplayMode.zscore,
+                child: Text(l10n.displayModeZscore),
+              ),
             ],
             icon: const Icon(Icons.tune),
             tooltip: 'Display mode',
@@ -840,7 +862,7 @@ class _RecorderPageState extends State<RecorderPage> {
               ),
             ),
             const SizedBox(height: 6),
-            _buildModeBadge(),
+            _buildModeBadge(context),
 
             const SizedBox(height: 16),
 
@@ -909,6 +931,12 @@ class _RecorderPageState extends State<RecorderPage> {
                 'Menu',
                 style: TextStyle(color: Colors.white, fontSize: 18),
               ),
+            ),
+            // Drawer の ListTile 群にこれを追加（ヘルプと同列）
+            ListTile(
+              leading: const Icon(Icons.insights),
+              title: Text(AppLocalizations.of(context)!.toneMapperTitle),
+              onTap: () => _openToneMapper(context),
             ),
             ListTile(
               leading: Icon(Icons.help_outline),

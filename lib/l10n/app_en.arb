@@ -14,7 +14,7 @@
     "whatIsToneDex": "What is ToneDex?",
     "whatIsToneDexDescription": "ToneDex is an app that helps instrumentalists analyze and compare the tonal quality of their instrument objectively using audio parameters.",
     "howToUse": "How to use",
-    "howToUseDescription": "Press the recording button and play a note. Recording will stop automatically after 5 seconds. You can record multiple times to compare different settings. Files are saved in the app and can be played, renamed, analyzed, or deleted.",
+    "howToUseDescription": "Tap the Record button and play a specific note on your instrument. Recording stops automatically after 5 seconds.\nYou can record multiple takes. Try different setups and playing styles.\n\nAll takes are saved in the app. Use the Play button to listen back.\n\nUse the Trash button to delete a take and the Pencil button to rename it.\n\nTap Analyze to compute sound-quality parameters for each take and show the results. If you have multiple takes, a bar chart will compare them. Use the toggle at the top-right to switch between Raw data and Z-score views.\n\nInterpret your instrument’s tone from the numbers and the chart.\n\nBrightness is auto-scaled for readability using the recent data distribution (P5–P95). The stored value remains the raw 0.0–1.0.\n\nYou can share the numeric results and charts via the Share button.",
     "analysisParameters": "Analysis Parameters",
     "analysisParametersDescription": "The following 5 parameters are analyzed:\n\n• RMS: Energy or loudness of the sound.\n• ZCR: Zero-crossing rate, related to noise or attack.\n• Spectral Centroid: Indicates brightness or sharpness.\n• Bandwidth: Shows the spread of frequencies.\n• Brightness: High-frequency ratio (0.0–1.0 scale).",
     "aboutZScore": "About Z-Score",
@@ -48,5 +48,10 @@
     "brightnessExplanation": "Brightness: Brightness Index",
     "support": "Support",
     "supportDescription": "If you enjoy using ToneDex, consider supporting the developer on Buy Me a Coffee.",
-    "buyMeACoffee": "Buy Me a Coffee"
+    "buyMeACoffee": "Buy Me a Coffee",
+    "displayModeRaw": "Raw data",
+    "displayModeZscore": "Z-score",
+    "aboutToneMapper": "About ToneMapper",
+    "howToUseToneMapper": "ToneMapper visualizes tone changes in real time while you play. It shows parameters such as RMS (Root Mean Square), ZCR (Zero-Crossing Rate), and Brightness (high-frequency ratio). Try playing and see how the tone moves.",
+    "toneMapperTitle": "ToneMapper"
 }

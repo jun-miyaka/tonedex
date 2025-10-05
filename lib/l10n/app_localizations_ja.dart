@@ -51,7 +51,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get howToUse => '使用方法';
 
   @override
-  String get howToUseDescription => 'アプリの録音ボタンを押し、あなたの楽器の特定の一音を鳴らしてください。録音は５秒間で自動停止します。\n録音は複数回行うことができます。楽器のセッティングや演奏の仕方を変えて、複数の録音をしてみてください。\n\n録音したファイルは、アプリの画面上に保存されます。録音された音を再生（ボタン）で確認できます。\n\nまたゴミ箱（ボタン）でファイルを削除できます。\n\nさらにエンピツ（ボタン）でファイル名を変更できます。\n\nそして、分析（ボタン）で各録音ファイルの音質パラメーターを分析し、結果を表示します。さらに複数の録音ファイルがある場合、それぞれを比較した棒グラフを表示します。分析結果の数値やグラフの高低からあなたの楽器の音質の評価を解釈してみてください。\n\n分析の数値結果、グラフについては共有ボタンにより、シェアすることができます。';
+  String get howToUseDescription => 'アプリの録音ボタンを押し、あなたの楽器の特定の一音を鳴らしてください。録音は５秒間で自動停止します。\n録音は複数回行うことができます。楽器のセッティングや演奏の仕方を変えて、複数の録音をしてみてください。\n\n録音したファイルは、アプリの画面上に保存されます。録音された音を再生（ボタン）で確認できます。\n\nまたゴミ箱（ボタン）でファイルを削除できます。\n\nさらにエンピツ（ボタン）でファイル名を変更できます。\n\nそして、分析（ボタン）で各録音ファイルの音質パラメーターを分析し、結果を表示します。さらに複数の録音ファイルがある場合、それぞれを比較した棒グラフを表示します。数値及び棒グラフは右上トグルスイッチからローデータかZスコアを選んで表示することができます。\n\n分析結果の数値やグラフの高低からあなたの楽器の音質の評価を解釈してみてください。\n\n分析の数値結果、グラフについては共有ボタンにより、シェアすることができます。\n\nなお、Brightnessのローデータのグラフは見やすさのために直近データの分布（P5–P95）でオートスケール表示されますので、ローデータの値とは異なります。\n\n分析の数値結果、グラフについては共有ボタンにより、シェアすることができます。';
 
   @override
   String get analysisParameters => '分析パラメーター';
@@ -145,4 +145,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get buyMeACoffee => 'Buy Me a Coffee';
+
+  @override
+  String get displayModeRaw => 'ローデータ';
+
+  @override
+  String get displayModeZscore => 'Zスコア';
+
+  @override
+  String get aboutToneMapper => 'ToneMapper（トーンマッパー）について';
+
+  @override
+  String get howToUseToneMapper => 'ToneMapper（トーンマッパー）は、楽器の音質をリアルタイムで表示します。表示される音質パラメータはRMS（Root Mean Square）、ZCR（ゼロ交差率）、Brightness（高周波）の３つです。演奏しながら、音質がどう変わるか試してみてください。';
+
+  @override
+  String get toneMapperTitle => 'ToneMapper(トーンマッパー）';
 }
