@@ -288,16 +288,16 @@ Future<List<double>> analyzeAudioIsolate(Uint8List bytes) async {
 
 // analyzeAudioIsolate に渡される分析処理の本体（同期関数）
 List<double> _analyzeInIsolate(Uint8List bytes) {
-  print('✅ isolate 開始');
+  if (!kReleaseMode) print('✅ isolate 開始');
   final audioData = bytes.sublist(44);
   final samples = bytesToDoubles(audioData);
-  print('✅ bytesToDoubles 完了: ${samples.length} samples');
+  if (!kReleaseMode) print('✅ bytesToDoubles 完了: ${samples.length} samples');
 
   final trimmed = _trimSilence(samples, threshold: 200, minLength: 2000);
-  print('🔍 サンプル数（トリム後）: ${trimmed.length}');
+  if (!kReleaseMode) print('🔍 サンプル数（トリム後）: ${trimmed.length}');
 
   if (trimmed.length < 100) {
-    print('⚠️ 有効な音声データがほとんどありません');
+    if (!kReleaseMode) print('⚠️ 有効な音声データがほとんどありません');
     return [0.0, 0.0, 0.0, 0.0, 0.0];
   }
 
@@ -308,36 +308,37 @@ List<double> _analyzeInIsolate(Uint8List bytes) {
 
   int nearestPowerOf2(int x) {
     int p = 1;
-    while (p * 2 <= x) {
-      p *= 2;
-    }
+    while (p * 2 <= x) p *= 2;
     return p;
   }
 
   final int fftLen = nearestPowerOf2(decimated.length);
   final List<double> padded = decimated.sublist(0, fftLen);
-  print('✅ decimation 完了: ${padded.length} samples');
+  if (!kReleaseMode) print('✅ decimation 完了: ${padded.length} samples');
 
   double safe(Function f, String label) {
     try {
-      print('🔄 $label 計算中');
+      if (!kReleaseMode) print('🔄 $label 計算中');
       final value = f();
-      print('✅ $label: $value');
+      if (!kReleaseMode) print('✅ $label: $value');
       if (value.isNaN || value.isInfinite) {
-        print('❌ $label は無効 (NaNまたはInfinity)');
+        if (!kReleaseMode) print('❌ $label は無効 (NaNまたはInfinity)');
         return 0.0;
       }
       return value;
     } catch (e) {
-      print('❌ $label エラー: $e');
+      if (!kReleaseMode) print('❌ $label エラー: $e');
       return 0.0;
     }
   }
 
   final rms = safe(() => calculateRMS(padded), 'RMS');
   final zcr = safe(() => calculateZCR(padded, 44100), 'ZCR');
-  final spectrum = fft(padded);
-  final magnitudes = spectrum.map((c) => c.modulus).toList();
+
+  // （※使っていなければこの2行は削ってOK）
+  // final spectrum = fft(padded);
+  // final magnitudes = spectrum.map((c) => c.modulus).toList();
+
   final centroid = safe(
     () => calculateSpectralCentroid(padded, 44100),
     'Centroid',
@@ -347,14 +348,11 @@ List<double> _analyzeInIsolate(Uint8List bytes) {
     'Bandwidth',
   );
   final brightness = safe(
-    () => calculateBrightnessFromDecimated(
-      decimated,
-      44100,
-    ), // ← “decimation 完了: 32768 samples” の配列
+    () => calculateBrightnessFromDecimated(decimated, 44100),
     'Brightness',
   );
 
-  print('✅ 全指標計算完了');
+  if (!kReleaseMode) print('✅ 全指標計算完了');
   return [rms, zcr, centroid, bandwidth, brightness];
 }
 
