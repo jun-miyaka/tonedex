@@ -20,7 +20,7 @@
     "aboutZScore": "About Z-Score",
     "aboutZScoreDescription": "Each parameter is standardized (mean = 0, std dev = 1) using Z-scores for comparison:\n\nZ ≈ 0 → Average\nZ ≈ ±1 → Slightly high/low\nZ ≥ ±2 → Significantly different",
     "notes": "Notes",
-    "notesDescription": "If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels. Symmetry is experimental and should be interpreted with other parameters.",
+    "notesDescription": "If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels.",
     "rmsLabel": "RMS (Volume)",
     "zcrLabel": "ZCR (Noise)",
     "centroidLabel": "Centroid (Brightness)",

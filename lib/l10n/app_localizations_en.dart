@@ -69,7 +69,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notes => 'Notes';
 
   @override
-  String get notesDescription => 'If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels. Symmetry is experimental and should be interpreted with other parameters.';
+  String get notesDescription => 'If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels.';
 
   @override
   String get rmsLabel => 'RMS (Volume)';

@@ -218,7 +218,7 @@ abstract class AppLocalizations {
   /// No description provided for @notesDescription.
   ///
   /// In en, this message translates to:
-  /// **'If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels. Symmetry is experimental and should be interpreted with other parameters.'**
+  /// **'If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels.'**
   String get notesDescription;
 
   /// No description provided for @rmsLabel.
