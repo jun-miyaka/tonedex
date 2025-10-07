@@ -32,7 +32,7 @@ android {
         applicationId = "com.junmiyakawa.tonedex"
         minSdk = 23        // record_android が要求（23以上）
         targetSdk = flutter.targetSdkVersion
-        versionCode = 16
+        versionCode = 17
         versionName = "5.0.6"
     }
 
