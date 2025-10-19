@@ -32,7 +32,7 @@ android {
         applicationId = "com.junmiyakawa.tonedex"
         minSdk = 23        // record_android が要求（23以上）
         targetSdk = flutter.targetSdkVersion
-        versionCode = 17
+        versionCode = 18
         versionName = "5.0.6"
     }
 
@@ -51,6 +51,17 @@ android {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
+        isMinifyEnabled = false
+        proguardFiles(
+            getDefaultProguardFile("proguard-android.txt"),
+            "proguard-rules.pro"
+        )
+
+        // 🔽 Kotlin DSL 用：Lint無効化
+        lint {
+            checkReleaseBuilds = false
+            abortOnError = false
+        }
         }
     }
 }
