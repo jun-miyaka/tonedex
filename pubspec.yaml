@@ -42,7 +42,7 @@ dependencies:
   url_launcher: ^6.2.5
 
   sound_palette:
-    path: "../../SoundPalette"   # ← あなたの実際の相対パスに合わせる
+    path: "../SoundPalette"   # ← あなたの実際の相対パスに合わせる
 
   flutter_localizations:
     sdk: flutter
@@ -59,6 +59,16 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_foreground: "assets/icon/icon.png"
+  adaptive_icon_background: "#FFFFFF"   # 透過PNGなら白など好みで
+  # （任意）Android 13 の単色：
+  # adaptive_icon_monochrome: "assets/icon/icon_mono.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

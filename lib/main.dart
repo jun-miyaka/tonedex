@@ -119,6 +119,9 @@ class _RecorderPageState extends State<RecorderPage> {
   bool _listReady = false; // 初回ロード完了フラグ
   bool _busy = false; // 操作直列化ロック
   int _loadGen = 0; // リスト更新の世代ID（競合回避）
+  // ▼ カウントダウン関連の状態
+  bool _showCountdown = false;
+  String _countdownText = '';
 
   // ← クラスの中、build()より上
   String _modeLabel(BuildContext context) {
@@ -527,6 +530,30 @@ class _RecorderPageState extends State<RecorderPage> {
     }
   }
 
+  // 🔽 カウントダウン表示＋録音開始（3→2→1→Start!）
+  Future<void> _showCountdownAndRecord() async {
+    if (_busy || isRecording) return;
+    setState(() {
+      _showCountdown = true;
+      _countdownText = '';
+    });
+
+    // 数字のリスト（必要なら秒数を変更可能）
+    const countdownSequence = ['3', '2', '1', 'Start!'];
+
+    for (final text in countdownSequence) {
+      if (!mounted) return;
+      setState(() => _countdownText = text);
+      await Future.delayed(const Duration(seconds: 1));
+    }
+
+    // カウントダウン終了で非表示に
+    setState(() => _showCountdown = false);
+
+    // 録音開始
+    await _startRecordingCore();
+  }
+
   String _generateFileName() {
     final now = DateTime.now();
     final formatted =
@@ -536,28 +563,26 @@ class _RecorderPageState extends State<RecorderPage> {
 
   String _pad2(int n) => n.toString().padLeft(2, '0');
 
-  Future<void> _startRecording() async {
+  // 元の録音処理を_core関数として分離
+  Future<void> _startRecordingCore() async {
     try {
       await _checkPermissions();
 
       final dir = await getApplicationDocumentsDirectory();
-      // ★ recordings ディレクトリを確実に作成
       final recDir = Directory('${dir.path}/recordings');
       if (!await recDir.exists()) {
         await recDir.create(recursive: true);
       }
 
-      // ★ ファイル名はヘルパから取得（常に .wav）
-      final relPath =
-          _generateFileName(); // e.g. 'recordings/20251001_123456.wav'
+      final relPath = _generateFileName(); // 例: recordings/20251001_123456.wav
       final filePath = '${dir.path}/$relPath';
 
-      _currentFilePath = filePath; // stopRecording で使う
+      _currentFilePath = filePath;
       await _channel.invokeMethod('startRecording', {'path': filePath});
 
       setState(() => isRecording = true);
 
-      // ※ 自動停止は運用に合わせて
+      // 自動停止
       Future.delayed(const Duration(seconds: 5), () async {
         if (!mounted || !isRecording) return;
         await _stopRecording();
@@ -828,99 +853,125 @@ class _RecorderPageState extends State<RecorderPage> {
         ],
       ),
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 録音ボタン
-            ElevatedButton(
-              onPressed: isRecording ? null : _startRecording,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isRecording ? Colors.red : null,
-              ),
-              child: Text(
-                isRecording
-                    ? AppLocalizations.of(context)!.recording
-                    : AppLocalizations.of(context)!.startRecording,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // 共有ボタン
-            // 共有ボタン（フル幅）＋その直下にMODEバッジ
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (!_listReady || _busy)
-                    ? null
-                    : () => _withLock(
-                        () => _shareAllAnalysisResultsMulti(_graphKey),
-                      ),
-                child: Text(AppLocalizations.of(context)!.shareResults),
-              ),
-            ),
-            const SizedBox(height: 6),
-            _buildModeBadge(context),
-
-            const SizedBox(height: 16),
-
-            // 録音ファイル一覧
-            ...List<Widget>.generate(fileNames.length, (index) {
-              final name = fileNames[index].split('/').last;
-              return Card(
-                child: ListTile(
-                  title: Text(labels[index]),
-                  subtitle: results.length > index && results[index].length == 5
-                      ? Text(_formatRecordLines(index))
-                      : Text(
-                          AppLocalizations.of(context)!.notAnalyzedOrIncomplete,
-                        ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: (!_listReady || _busy)
-                            ? null
-                            : () => _withLock(() => _play(fileNames[index])),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.analytics),
-                        onPressed: (!_listReady || _busy)
-                            ? null
-                            : () => _withLock(() => _analyze(fileNames[index])),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: (!_listReady || _busy)
-                            ? null
-                            : () => _withLock(() async {
-                                _showRenameDialog(index);
-                              }),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: (!_listReady || _busy)
-                            ? null
-                            : () => _withLock(() async {
-                                _delete(fileNames[index]);
-                                await _loadRecordings(); // リスト更新
-                              }),
-                      ),
-                    ],
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 録音ボタン
+                ElevatedButton(
+                  onPressed: isRecording ? null : _showCountdownAndRecord,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isRecording ? Colors.red : null,
+                  ),
+                  child: Text(
+                    isRecording
+                        ? AppLocalizations.of(context)!.recording
+                        : AppLocalizations.of(context)!.startRecording,
                   ),
                 ),
-              );
-            }),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 8),
 
-            _buildGraph(_graphKey),
-          ],
-        ),
+                // 共有ボタン（フル幅）＋その直下にMODEバッジ
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (!_listReady || _busy)
+                        ? null
+                        : () => _withLock(
+                            () => _shareAllAnalysisResultsMulti(_graphKey),
+                          ),
+                    child: Text(AppLocalizations.of(context)!.shareResults),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildModeBadge(context), // ← context引数は不要
+
+                const SizedBox(height: 16),
+
+                // 録音ファイル一覧
+                ...List<Widget>.generate(fileNames.length, (index) {
+                  final name = fileNames[index].split('/').last;
+                  return Card(
+                    child: ListTile(
+                      title: Text(labels[index]),
+                      subtitle:
+                          results.length > index && results[index].length == 5
+                          ? Text(_formatRecordLines(index))
+                          : Text(
+                              AppLocalizations.of(
+                                context,
+                              )!.notAnalyzedOrIncomplete,
+                            ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.play_arrow),
+                            onPressed: (!_listReady || _busy)
+                                ? null
+                                : () =>
+                                      _withLock(() => _play(fileNames[index])),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.analytics),
+                            onPressed: (!_listReady || _busy)
+                                ? null
+                                : () => _withLock(
+                                    () => _analyze(fileNames[index]),
+                                  ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: (!_listReady || _busy)
+                                ? null
+                                : () => _withLock(() async {
+                                    _showRenameDialog(index);
+                                  }),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: (!_listReady || _busy)
+                                ? null
+                                : () => _withLock(() async {
+                                    _delete(fileNames[index]);
+                                    await _loadRecordings(); // リスト更新
+                                  }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+
+                const SizedBox(height: 16),
+
+                _buildGraph(_graphKey),
+              ],
+            ),
+          ),
+
+          // 🔽 カウントダウンオーバーレイ
+          if (_showCountdown)
+            Container(
+              color: Colors.white.withOpacity(0.2), // 背景を少し白く
+              child: Center(
+                child: Text(
+                  _countdownText,
+                  style: const TextStyle(
+                    fontSize: 60,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
+
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
