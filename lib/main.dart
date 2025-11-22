@@ -1022,8 +1022,54 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [Locale('en'), Locale('ja')],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('ja'),
+        Locale('zh'), // 簡体字（中国本土）
+        Locale.fromSubtags(
+          languageCode: 'zh',
+          scriptCode: 'Hant',
+        ), // 繁体字（台湾・香港など）
+      ],
       // locale: Locale('ja'), // ← 強制日本語化したいときはコメント解除
+
+      // ★ ここを追加：ロケール解決のカスタムロジック
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale == null) return supportedLocales.first;
+
+        // 中国語だけ特別扱い
+        if (locale.languageCode == 'zh') {
+          // 繁体にしたいケース：script=Hant or 国コードが TW/HK/MO
+          final isTraditional =
+              locale.scriptCode == 'Hant' ||
+              locale.countryCode == 'TW' ||
+              locale.countryCode == 'HK' ||
+              locale.countryCode == 'MO';
+
+          if (isTraditional) {
+            // supportedLocales から zh + Hant を探す
+            final hant = supportedLocales.firstWhere(
+              (l) => l.languageCode == 'zh' && l.scriptCode == 'Hant',
+              orElse: () => supportedLocales.first,
+            );
+            return hant;
+          } else {
+            // それ以外の zh は簡体
+            final simplified = supportedLocales.firstWhere(
+              (l) => l.languageCode == 'zh' && l.scriptCode == null,
+              orElse: () => supportedLocales.first,
+            );
+            return simplified;
+          }
+        }
+
+        // それ以外の言語はデフォルト挙動（言語コードで一致したもの）
+        return supportedLocales.firstWhere(
+          (l) => l.languageCode == locale.languageCode,
+          orElse: () => supportedLocales.first,
+        );
+      },
+
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const RecorderPage(), // ← あなたのトップ画面
     );

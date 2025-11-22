@@ -4,3 +4,11 @@ output-localization-file: app_localizations.dart
 output-class: AppLocalizations
 output-dir: lib/l10n          # ★追加：生成物を lib/l10n に出す
 synthetic-package: false      # ★追加：flutter_gen を使わない
+
+# ★ 翻訳対象のロケール一覧
+# （ここに zh, zh_Hant を必ず追加）
+supported-locales:
+  - en
+  - ja
+  - zh
+  - zh_Hant

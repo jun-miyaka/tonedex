@@ -308,7 +308,9 @@ List<double> _analyzeInIsolate(Uint8List bytes) {
 
   int nearestPowerOf2(int x) {
     int p = 1;
-    while (p * 2 <= x) p *= 2;
+    while (p * 2 <= x) {
+      p *= 2;
+    }
     return p;
   }
 
