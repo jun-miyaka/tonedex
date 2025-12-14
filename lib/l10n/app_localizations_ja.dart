@@ -45,7 +45,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get whatIsToneDex => 'ToneDexとは？';
 
   @override
-  String get whatIsToneDexDescription => 'TondDexは楽器プレイヤーが、楽器の音質を分析・評価するためのアプリです。これまで「明るい」「暗\nい」「エッジのきいた」「暖かい」など印象だけで語られていた音質を音質パラメーターを用いて、客観的に知\nることができます。';
+  String get whatIsToneDexDescription => 'ToneDexは楽器プレイヤーが、楽器の音質を分析・評価するためのアプリです。これまで「明るい」「暗\nい」「エッジのきいた」「暖かい」など印象だけで語られていた音質を音質パラメーターを用いて、客観的に知\nることができます。';
 
   @override
   String get howToUse => '使用方法';
@@ -160,4 +160,156 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get toneMapperTitle => 'ToneMapper(トーンマッパー）';
+
+  @override
+  String get tuner_title => 'ToneDex Tuner';
+
+  @override
+  String get tuner_realtime_tuner => 'リアルタイムチューナー';
+
+  @override
+  String get tuner_pitch_checker => 'ピッチチェッカー';
+
+  @override
+  String get tuner_target_note => 'ターゲット音';
+
+  @override
+  String get tuner_reference_pitch => 'A4（基準音）';
+
+  @override
+  String get tuner_measure_5sec => '5秒間のピッチをチェック';
+
+  @override
+  String get tuner_measure_10sec => '10秒間のピッチをチェック';
+
+  @override
+  String get tuner_measuring_now => '測定中…';
+
+  @override
+  String tuner_pitch_timeline_title(Object seconds) {
+    return '$seconds秒間のピッチ推移（cents）';
+  }
+
+  @override
+  String get tuner_score_label => 'スコア';
+
+  @override
+  String get tuner_pitch_stability => 'ピッチの安定度';
+
+  @override
+  String get tuner_average_error => '平均誤差';
+
+  @override
+  String get tuner_sample_count => 'サンプル数';
+
+  @override
+  String get tuner_result_header => '測定結果';
+
+  @override
+  String get tuner_share_result => '結果を共有';
+
+  @override
+  String get tuner_shared_title => 'ToneDex Tuner - 測定結果';
+
+  @override
+  String get tuner_shared_measured_with => 'ToneDex チューナーで測定';
+
+  @override
+  String get tuner_pitch_low => '左＝低い（フラット）';
+
+  @override
+  String get tuner_pitch_high => '右＝高い（シャープ）';
+
+  @override
+  String get tuner_pitch_indicator => 'ピッチ表示';
+
+  @override
+  String get tuner_pitch_axis_hint => '左＝低い（フラット） / 右＝高い（シャープ）';
+
+  @override
+  String get tuner_permission_denied => 'マイクの権限が許可されていません';
+
+  @override
+  String get tuner_permission_request_message => '測定を行うにはマイクへのアクセスを許可してください。';
+
+  @override
+  String get tuner_start_countdown => '測定開始します…';
+
+  @override
+  String tuner_countdown_label(Object seconds) {
+    return '録音開始まで: $seconds 秒';
+  }
+
+  @override
+  String tuner_measuring_label(Object seconds) {
+    return '測定中…（$seconds秒間）';
+  }
+
+  @override
+  String get tuner_select_duration => '測定時間';
+
+  @override
+  String get tuner_seconds_suffix => '秒';
+
+  @override
+  String get tuner_seconds_5 => '5秒';
+
+  @override
+  String get tuner_seconds_10 => '10秒';
+
+  @override
+  String get tuner_note_label => '音名';
+
+  @override
+  String get tuner_current_pitch => '現在のピッチ';
+
+  @override
+  String get tuner_error_no_pitch_detected => 'ピッチが検出できませんでした。もう一度お試しください。';
+
+  @override
+  String get tuner_no_sample => 'サンプルがありません';
+
+  @override
+  String get tuner_no_result => 'まだ計測が行われていません。';
+
+  @override
+  String get tuner_dummy_chart_label => '5秒間の cents 推移（ダミー表示）';
+
+  @override
+  String get tuner_shared_target_note => 'ターゲット音';
+
+  @override
+  String get tuner_shared_base_a4 => 'A4（基準音）';
+
+  @override
+  String get tuner_shared_pitch_stability => 'ピッチの安定度';
+
+  @override
+  String get tuner_shared_average_error => '平均誤差';
+
+  @override
+  String get tuner_shared_sample_count => 'サンプル数';
+
+  @override
+  String get help_tuner_title => 'ToneDex Tuner について';
+
+  @override
+  String get help_tuner_intro => 'ToneDex のチューナー機能は、楽器のピッチ精度と安定度を数値とグラフで可視化する測定ツールです。通常のチューナーでは分かりにくい、ピッチの「揺れ」や「安定性」を定量的に確認できるのが特徴です。';
+
+  @override
+  String get help_tuner_howto => '1. ターゲット音（例：A、Bb）を選択します。\n2. 基準ピッチ A4（通常は 440Hz）を設定します。\n3. 計測時間（5秒または10秒）を選びます。\n4. 「Check Pitch」をタップします。\n5. 短いカウントダウンの後、計測が開始されます。\n6. 計測終了後、スコア、安定度、ピッチの推移が表示されます。';
+
+  @override
+  String get help_tuner_about_cent => 'ピッチの誤差は “セント（cent）” で表示されます。100 cent が半音に相当し、プラスは高め（シャープ）、マイナスは低め（フラット）を示します。';
+
+  @override
+  String get help_tuner_scores => '・スコアは「平均誤差」と「ピッチの安定度」から計算されます。\n・平均誤差：ターゲット音からどれだけずれていたかを示します。\n・安定度：ピッチの揺れ（標準偏差）の小ささを元に評価します。\n・正確で揺れの少ない音ほど高得点になります。';
+
+  @override
+  String get tuner_out_of_range_message => '目標音から大きく外れています。もう一度安定した音程でお試しください。';
+
+  @override
+  String pitchGraphTitle(int seconds) {
+    return '$seconds秒間のピッチ推移（cents）';
+  }
 }

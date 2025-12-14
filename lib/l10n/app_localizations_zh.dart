@@ -160,6 +160,158 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toneMapperTitle => 'ToneMapper';
+
+  @override
+  String get tuner_title => 'ToneDex 调音器';
+
+  @override
+  String get tuner_realtime_tuner => '实时调音器';
+
+  @override
+  String get tuner_pitch_checker => '音高检测';
+
+  @override
+  String get tuner_target_note => '目标音';
+
+  @override
+  String get tuner_reference_pitch => 'A4（参考音高）';
+
+  @override
+  String get tuner_measure_5sec => '检测 5 秒音高';
+
+  @override
+  String get tuner_measure_10sec => '检测 10 秒音高';
+
+  @override
+  String get tuner_measuring_now => '测量中…';
+
+  @override
+  String tuner_pitch_timeline_title(Object seconds) {
+    return '过去 $seconds 秒的音高变化（音分）';
+  }
+
+  @override
+  String get tuner_score_label => '得分';
+
+  @override
+  String get tuner_pitch_stability => '音高稳定度';
+
+  @override
+  String get tuner_average_error => '平均误差';
+
+  @override
+  String get tuner_sample_count => '采样数';
+
+  @override
+  String get tuner_result_header => '测量结果';
+
+  @override
+  String get tuner_share_result => '分享结果';
+
+  @override
+  String get tuner_shared_title => 'ToneDex 调音器 - 测量结果';
+
+  @override
+  String get tuner_shared_measured_with => '由 ToneDex 调音器测量';
+
+  @override
+  String get tuner_pitch_low => '左＝偏低（降）';
+
+  @override
+  String get tuner_pitch_high => '右＝偏高（升）';
+
+  @override
+  String get tuner_pitch_indicator => '音高指示器';
+
+  @override
+  String get tuner_pitch_axis_hint => '左＝偏低 / 右＝偏高';
+
+  @override
+  String get tuner_permission_denied => '麦克风权限未开启。';
+
+  @override
+  String get tuner_permission_request_message => '请允许麦克风使用权限以开始测量。';
+
+  @override
+  String get tuner_start_countdown => '即将开始测量…';
+
+  @override
+  String tuner_countdown_label(Object seconds) {
+    return '录音将在 $seconds 秒后开始';
+  }
+
+  @override
+  String tuner_measuring_label(Object seconds) {
+    return '测量中…（$seconds 秒）';
+  }
+
+  @override
+  String get tuner_select_duration => '测量时长';
+
+  @override
+  String get tuner_seconds_suffix => '秒';
+
+  @override
+  String get tuner_seconds_5 => '5 秒';
+
+  @override
+  String get tuner_seconds_10 => '10 秒';
+
+  @override
+  String get tuner_note_label => '音名';
+
+  @override
+  String get tuner_current_pitch => '当前音高';
+
+  @override
+  String get tuner_error_no_pitch_detected => '未检测到音高，请重试。';
+
+  @override
+  String get tuner_no_sample => '暂无采样数据';
+
+  @override
+  String get tuner_no_result => '尚未进行任何测量。';
+
+  @override
+  String get tuner_dummy_chart_label => '音高变化（示例）';
+
+  @override
+  String get tuner_shared_target_note => '目标音';
+
+  @override
+  String get tuner_shared_base_a4 => 'A4（参考音高）';
+
+  @override
+  String get tuner_shared_pitch_stability => '音高稳定度';
+
+  @override
+  String get tuner_shared_average_error => '平均误差';
+
+  @override
+  String get tuner_shared_sample_count => '采样数';
+
+  @override
+  String get help_tuner_title => '关于 ToneDex 调音器';
+
+  @override
+  String get help_tuner_intro => 'ToneDex 调音器可以通过数值和图表可视化演奏音的准确度与稳定度。与一般调音器不同，它能够量化音高的波动与稳定性。';
+
+  @override
+  String get help_tuner_howto => '1. 选择目标音（如 A、Bb）。\n2. 设置参考音高 A4（通常为 440 Hz）。\n3. 选择测量时长（5 秒或 10 秒）。\n4. 点击“检测音高”。\n5. 倒计时结束后开始测量。\n6. 测量结束后，将显示得分、稳定度以及音高变化图表。';
+
+  @override
+  String get help_tuner_about_cent => '音高偏差以“音分（cent）”显示。100 音分等于一个半音。正值表示偏高（升），负值表示偏低（降）。';
+
+  @override
+  String get help_tuner_scores => '• 得分由“平均误差”和“音高稳定度”共同计算。\n• 平均误差：音高偏离目标音的程度。\n• 稳定度：根据音高波动（标准差）评估。\n• 越准确、越稳定的音高将获得更高的得分。';
+
+  @override
+  String get tuner_out_of_range_message => '音高与目标音差距过大。请用更稳定的音高重新测量。';
+
+  @override
+  String pitchGraphTitle(int seconds) {
+    return '$seconds秒内的音高变化（音分）';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -318,4 +470,156 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get toneMapperTitle => 'ToneMapper';
+
+  @override
+  String get tuner_title => 'ToneDex 調音器';
+
+  @override
+  String get tuner_realtime_tuner => '即時調音器';
+
+  @override
+  String get tuner_pitch_checker => '音高檢測';
+
+  @override
+  String get tuner_target_note => '目標音';
+
+  @override
+  String get tuner_reference_pitch => 'A4（基準音高）';
+
+  @override
+  String get tuner_measure_5sec => '檢測 5 秒音高';
+
+  @override
+  String get tuner_measure_10sec => '檢測 10 秒音高';
+
+  @override
+  String get tuner_measuring_now => '測量中…';
+
+  @override
+  String tuner_pitch_timeline_title(Object seconds) {
+    return '過去 $seconds 秒的音高變化（音分）';
+  }
+
+  @override
+  String get tuner_score_label => '分數';
+
+  @override
+  String get tuner_pitch_stability => '音高穩定度';
+
+  @override
+  String get tuner_average_error => '平均誤差';
+
+  @override
+  String get tuner_sample_count => '取樣數';
+
+  @override
+  String get tuner_result_header => '測量結果';
+
+  @override
+  String get tuner_share_result => '分享結果';
+
+  @override
+  String get tuner_shared_title => 'ToneDex 調音器 - 測量結果';
+
+  @override
+  String get tuner_shared_measured_with => '由 ToneDex 調音器測量';
+
+  @override
+  String get tuner_pitch_low => '左＝偏低（降）';
+
+  @override
+  String get tuner_pitch_high => '右＝偏高（升）';
+
+  @override
+  String get tuner_pitch_indicator => '音高指示器';
+
+  @override
+  String get tuner_pitch_axis_hint => '左＝偏低 / 右＝偏高';
+
+  @override
+  String get tuner_permission_denied => '未獲得麥克風權限。';
+
+  @override
+  String get tuner_permission_request_message => '請允許麥克風存取以開始測量。';
+
+  @override
+  String get tuner_start_countdown => '即將開始測量…';
+
+  @override
+  String tuner_countdown_label(Object seconds) {
+    return '錄音將在 $seconds 秒後開始';
+  }
+
+  @override
+  String tuner_measuring_label(Object seconds) {
+    return '測量中…（$seconds 秒）';
+  }
+
+  @override
+  String get tuner_select_duration => '測量時長';
+
+  @override
+  String get tuner_seconds_suffix => '秒';
+
+  @override
+  String get tuner_seconds_5 => '5 秒';
+
+  @override
+  String get tuner_seconds_10 => '10 秒';
+
+  @override
+  String get tuner_note_label => '音名';
+
+  @override
+  String get tuner_current_pitch => '目前音高';
+
+  @override
+  String get tuner_error_no_pitch_detected => '未偵測到音高，請再試一次。';
+
+  @override
+  String get tuner_no_sample => '沒有取樣資料';
+
+  @override
+  String get tuner_no_result => '尚未進行任何測量。';
+
+  @override
+  String get tuner_dummy_chart_label => '音高變化（示例）';
+
+  @override
+  String get tuner_shared_target_note => '目標音';
+
+  @override
+  String get tuner_shared_base_a4 => 'A4（基準音高）';
+
+  @override
+  String get tuner_shared_pitch_stability => '音高穩定度';
+
+  @override
+  String get tuner_shared_average_error => '平均誤差';
+
+  @override
+  String get tuner_shared_sample_count => '取樣數';
+
+  @override
+  String get help_tuner_title => '關於 ToneDex 調音器';
+
+  @override
+  String get help_tuner_intro => 'ToneDex 調音器可透過數值與圖表呈現演奏音的準確度與穩定度。與一般調音器不同，它能量化音高的波動與穩定性，進行更精準的分析。';
+
+  @override
+  String get help_tuner_howto => '1. 選擇目標音（例如 A、Bb）。\n2. 設定基準音高 A4（通常為 440 Hz）。\n3. 選擇測量時長（5 秒或 10 秒）。\n4. 點擊「檢測音高」。\n5. 倒數結束後開始測量。\n6. 測量結束後會顯示分數、穩定度與音高變化圖。';
+
+  @override
+  String get help_tuner_about_cent => '音高誤差以「音分（cent）」表示。100 音分等於一個半音。正值代表偏高（升），負值代表偏低（降）。';
+
+  @override
+  String get help_tuner_scores => '• 分數由「平均誤差」及「音高穩定度」計算而成。\n• 平均誤差：音高偏離目標音的程度。\n• 穩定度：根據音高波動（標準差）進行評估。\n• 音高越準、越穩定，得分越高。';
+
+  @override
+  String get tuner_out_of_range_message => '音高與目標音差距過大。請以更穩定的音高重新測量。';
+
+  @override
+  String pitchGraphTitle(int seconds) {
+    return '$seconds秒內的音高變化（音分）';
+  }
 }

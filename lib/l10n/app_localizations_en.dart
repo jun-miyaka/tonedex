@@ -160,4 +160,156 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toneMapperTitle => 'ToneMapper';
+
+  @override
+  String get tuner_title => 'ToneDex Tuner';
+
+  @override
+  String get tuner_realtime_tuner => 'Real-time Tuner';
+
+  @override
+  String get tuner_pitch_checker => 'Pitch Checker';
+
+  @override
+  String get tuner_target_note => 'Target Note';
+
+  @override
+  String get tuner_reference_pitch => 'A4 (Reference Pitch)';
+
+  @override
+  String get tuner_measure_5sec => 'Check pitch for 5 seconds';
+
+  @override
+  String get tuner_measure_10sec => 'Check pitch for 10 seconds';
+
+  @override
+  String get tuner_measuring_now => 'Measuring…';
+
+  @override
+  String tuner_pitch_timeline_title(Object seconds) {
+    return 'Pitch variation over $seconds seconds (cents)';
+  }
+
+  @override
+  String get tuner_score_label => 'Score';
+
+  @override
+  String get tuner_pitch_stability => 'Pitch Stability';
+
+  @override
+  String get tuner_average_error => 'Average Error';
+
+  @override
+  String get tuner_sample_count => 'Sample Count';
+
+  @override
+  String get tuner_result_header => 'Measurement Result';
+
+  @override
+  String get tuner_share_result => 'Share Result';
+
+  @override
+  String get tuner_shared_title => 'ToneDex Tuner - Measurement Result';
+
+  @override
+  String get tuner_shared_measured_with => 'Measured with ToneDex Tuner';
+
+  @override
+  String get tuner_pitch_low => 'Left = Flat (Lower)';
+
+  @override
+  String get tuner_pitch_high => 'Right = Sharp (Higher)';
+
+  @override
+  String get tuner_pitch_indicator => 'Pitch Indicator';
+
+  @override
+  String get tuner_pitch_axis_hint => 'Left = Flat / Right = Sharp';
+
+  @override
+  String get tuner_permission_denied => 'Microphone permission is not granted.';
+
+  @override
+  String get tuner_permission_request_message => 'Please allow microphone access to start measuring.';
+
+  @override
+  String get tuner_start_countdown => 'Starting measurement…';
+
+  @override
+  String tuner_countdown_label(Object seconds) {
+    return 'Recording starts in: $seconds sec';
+  }
+
+  @override
+  String tuner_measuring_label(Object seconds) {
+    return 'Measuring… ($seconds sec)';
+  }
+
+  @override
+  String get tuner_select_duration => 'Duration';
+
+  @override
+  String get tuner_seconds_suffix => 'sec';
+
+  @override
+  String get tuner_seconds_5 => '5 sec';
+
+  @override
+  String get tuner_seconds_10 => '10 sec';
+
+  @override
+  String get tuner_note_label => 'Note';
+
+  @override
+  String get tuner_current_pitch => 'Current Pitch';
+
+  @override
+  String get tuner_error_no_pitch_detected => 'No pitch detected. Please try again.';
+
+  @override
+  String get tuner_no_sample => 'No samples available';
+
+  @override
+  String get tuner_no_result => 'No measurement has been taken yet.';
+
+  @override
+  String get tuner_dummy_chart_label => 'Pitch variation (dummy)';
+
+  @override
+  String get tuner_shared_target_note => 'Target Note';
+
+  @override
+  String get tuner_shared_base_a4 => 'A4 (Reference Pitch)';
+
+  @override
+  String get tuner_shared_pitch_stability => 'Pitch Stability';
+
+  @override
+  String get tuner_shared_average_error => 'Average Error';
+
+  @override
+  String get tuner_shared_sample_count => 'Sample Count';
+
+  @override
+  String get help_tuner_title => 'About ToneDex Tuner';
+
+  @override
+  String get help_tuner_intro => 'The ToneDex Tuner visualizes the pitch accuracy and stability of your instrument through numerical values and graphs. Unlike standard tuners, it quantifies pitch fluctuations and stability for more precise analysis.';
+
+  @override
+  String get help_tuner_howto => '1. Select the target note (e.g., A, Bb).\n2. Set the reference pitch A4 (typically 440 Hz).\n3. Choose a measurement duration (5 or 10 seconds).\n4. Tap \"Check Pitch\".\n5. Measurement starts after a short countdown.\n6. After measuring, your score, stability, and pitch timeline will be displayed.';
+
+  @override
+  String get help_tuner_about_cent => 'Pitch deviation is displayed in cents. 100 cents equals one semitone. Positive values mean the pitch is sharp, and negative values mean it is flat.';
+
+  @override
+  String get help_tuner_scores => '• The score is calculated from both average error and pitch stability.\n• Average Error: how far the pitch deviated from the target note.\n• Stability: evaluated based on the amount of pitch fluctuation.\n• Higher scores indicate more accurate and stable pitch.';
+
+  @override
+  String get tuner_out_of_range_message => 'The pitch is too far from the target note. Please try again with a more stable pitch.';
+
+  @override
+  String pitchGraphTitle(int seconds) {
+    return 'Pitch change in $seconds sec (cents)';
+  }
 }

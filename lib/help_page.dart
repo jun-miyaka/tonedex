@@ -56,6 +56,22 @@ class HelpPage extends StatelessWidget {
 
               const SizedBox(height: 16),
               Text(
+                AppLocalizations.of(context)!.help_tuner_title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(AppLocalizations.of(context)!.help_tuner_intro),
+
+              const SizedBox(height: 8),
+              Text(AppLocalizations.of(context)!.help_tuner_howto),
+
+              const SizedBox(height: 8),
+              Text(AppLocalizations.of(context)!.help_tuner_about_cent),
+
+              const SizedBox(height: 8),
+              Text(AppLocalizations.of(context)!.help_tuner_scores),
+
+              const SizedBox(height: 16),
+              Text(
                 AppLocalizations.of(context)!.notes,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),

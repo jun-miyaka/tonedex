@@ -403,6 +403,294 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'ToneMapper'**
   String get toneMapperTitle;
+
+  /// No description provided for @tuner_title.
+  ///
+  /// In en, this message translates to:
+  /// **'ToneDex Tuner'**
+  String get tuner_title;
+
+  /// No description provided for @tuner_realtime_tuner.
+  ///
+  /// In en, this message translates to:
+  /// **'Real-time Tuner'**
+  String get tuner_realtime_tuner;
+
+  /// No description provided for @tuner_pitch_checker.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch Checker'**
+  String get tuner_pitch_checker;
+
+  /// No description provided for @tuner_target_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Target Note'**
+  String get tuner_target_note;
+
+  /// No description provided for @tuner_reference_pitch.
+  ///
+  /// In en, this message translates to:
+  /// **'A4 (Reference Pitch)'**
+  String get tuner_reference_pitch;
+
+  /// No description provided for @tuner_measure_5sec.
+  ///
+  /// In en, this message translates to:
+  /// **'Check pitch for 5 seconds'**
+  String get tuner_measure_5sec;
+
+  /// No description provided for @tuner_measure_10sec.
+  ///
+  /// In en, this message translates to:
+  /// **'Check pitch for 10 seconds'**
+  String get tuner_measure_10sec;
+
+  /// No description provided for @tuner_measuring_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Measuring…'**
+  String get tuner_measuring_now;
+
+  /// No description provided for @tuner_pitch_timeline_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch variation over {seconds} seconds (cents)'**
+  String tuner_pitch_timeline_title(Object seconds);
+
+  /// No description provided for @tuner_score_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get tuner_score_label;
+
+  /// No description provided for @tuner_pitch_stability.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch Stability'**
+  String get tuner_pitch_stability;
+
+  /// No description provided for @tuner_average_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Average Error'**
+  String get tuner_average_error;
+
+  /// No description provided for @tuner_sample_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample Count'**
+  String get tuner_sample_count;
+
+  /// No description provided for @tuner_result_header.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement Result'**
+  String get tuner_result_header;
+
+  /// No description provided for @tuner_share_result.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Result'**
+  String get tuner_share_result;
+
+  /// No description provided for @tuner_shared_title.
+  ///
+  /// In en, this message translates to:
+  /// **'ToneDex Tuner - Measurement Result'**
+  String get tuner_shared_title;
+
+  /// No description provided for @tuner_shared_measured_with.
+  ///
+  /// In en, this message translates to:
+  /// **'Measured with ToneDex Tuner'**
+  String get tuner_shared_measured_with;
+
+  /// No description provided for @tuner_pitch_low.
+  ///
+  /// In en, this message translates to:
+  /// **'Left = Flat (Lower)'**
+  String get tuner_pitch_low;
+
+  /// No description provided for @tuner_pitch_high.
+  ///
+  /// In en, this message translates to:
+  /// **'Right = Sharp (Higher)'**
+  String get tuner_pitch_high;
+
+  /// No description provided for @tuner_pitch_indicator.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch Indicator'**
+  String get tuner_pitch_indicator;
+
+  /// No description provided for @tuner_pitch_axis_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Left = Flat / Right = Sharp'**
+  String get tuner_pitch_axis_hint;
+
+  /// No description provided for @tuner_permission_denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission is not granted.'**
+  String get tuner_permission_denied;
+
+  /// No description provided for @tuner_permission_request_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Please allow microphone access to start measuring.'**
+  String get tuner_permission_request_message;
+
+  /// No description provided for @tuner_start_countdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting measurement…'**
+  String get tuner_start_countdown;
+
+  /// No description provided for @tuner_countdown_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording starts in: {seconds} sec'**
+  String tuner_countdown_label(Object seconds);
+
+  /// No description provided for @tuner_measuring_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Measuring… ({seconds} sec)'**
+  String tuner_measuring_label(Object seconds);
+
+  /// No description provided for @tuner_select_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get tuner_select_duration;
+
+  /// No description provided for @tuner_seconds_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'sec'**
+  String get tuner_seconds_suffix;
+
+  /// No description provided for @tuner_seconds_5.
+  ///
+  /// In en, this message translates to:
+  /// **'5 sec'**
+  String get tuner_seconds_5;
+
+  /// No description provided for @tuner_seconds_10.
+  ///
+  /// In en, this message translates to:
+  /// **'10 sec'**
+  String get tuner_seconds_10;
+
+  /// No description provided for @tuner_note_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get tuner_note_label;
+
+  /// No description provided for @tuner_current_pitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Pitch'**
+  String get tuner_current_pitch;
+
+  /// No description provided for @tuner_error_no_pitch_detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No pitch detected. Please try again.'**
+  String get tuner_error_no_pitch_detected;
+
+  /// No description provided for @tuner_no_sample.
+  ///
+  /// In en, this message translates to:
+  /// **'No samples available'**
+  String get tuner_no_sample;
+
+  /// No description provided for @tuner_no_result.
+  ///
+  /// In en, this message translates to:
+  /// **'No measurement has been taken yet.'**
+  String get tuner_no_result;
+
+  /// No description provided for @tuner_dummy_chart_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch variation (dummy)'**
+  String get tuner_dummy_chart_label;
+
+  /// No description provided for @tuner_shared_target_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Target Note'**
+  String get tuner_shared_target_note;
+
+  /// No description provided for @tuner_shared_base_a4.
+  ///
+  /// In en, this message translates to:
+  /// **'A4 (Reference Pitch)'**
+  String get tuner_shared_base_a4;
+
+  /// No description provided for @tuner_shared_pitch_stability.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch Stability'**
+  String get tuner_shared_pitch_stability;
+
+  /// No description provided for @tuner_shared_average_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Average Error'**
+  String get tuner_shared_average_error;
+
+  /// No description provided for @tuner_shared_sample_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample Count'**
+  String get tuner_shared_sample_count;
+
+  /// No description provided for @help_tuner_title.
+  ///
+  /// In en, this message translates to:
+  /// **'About ToneDex Tuner'**
+  String get help_tuner_title;
+
+  /// No description provided for @help_tuner_intro.
+  ///
+  /// In en, this message translates to:
+  /// **'The ToneDex Tuner visualizes the pitch accuracy and stability of your instrument through numerical values and graphs. Unlike standard tuners, it quantifies pitch fluctuations and stability for more precise analysis.'**
+  String get help_tuner_intro;
+
+  /// No description provided for @help_tuner_howto.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Select the target note (e.g., A, Bb).\n2. Set the reference pitch A4 (typically 440 Hz).\n3. Choose a measurement duration (5 or 10 seconds).\n4. Tap \"Check Pitch\".\n5. Measurement starts after a short countdown.\n6. After measuring, your score, stability, and pitch timeline will be displayed.'**
+  String get help_tuner_howto;
+
+  /// No description provided for @help_tuner_about_cent.
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch deviation is displayed in cents. 100 cents equals one semitone. Positive values mean the pitch is sharp, and negative values mean it is flat.'**
+  String get help_tuner_about_cent;
+
+  /// No description provided for @help_tuner_scores.
+  ///
+  /// In en, this message translates to:
+  /// **'• The score is calculated from both average error and pitch stability.\n• Average Error: how far the pitch deviated from the target note.\n• Stability: evaluated based on the amount of pitch fluctuation.\n• Higher scores indicate more accurate and stable pitch.'**
+  String get help_tuner_scores;
+
+  /// No description provided for @tuner_out_of_range_message.
+  ///
+  /// In en, this message translates to:
+  /// **'The pitch is too far from the target note. Please try again with a more stable pitch.'**
+  String get tuner_out_of_range_message;
+
+  /// Title of pitch graph with seconds variable
+  ///
+  /// In en, this message translates to:
+  /// **'Pitch change in {seconds} sec (cents)'**
+  String pitchGraphTitle(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

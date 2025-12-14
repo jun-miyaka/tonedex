@@ -18,6 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sax_app/l10n/app_localizations.dart';
 // ← これを使う
 import 'package:sound_palette/sound_palette.dart'; // ← pubspec の path 依存で使えるように
+import 'tuner/tuner_page.dart';
+import 'audio/mic_session_manager.dart';
 
 // ▼ Calibrated/Z-score 表示モード
 enum DisplayMode { raw, zscore }
@@ -288,6 +290,17 @@ class _RecorderPageState extends State<RecorderPage> {
   @override
   void initState() {
     super.initState();
+
+    // ★追加：recorder の stop 方法を MicSessionManager に登録
+    MicSessionManager.instance.registerOwner(
+      MicSessionOwner.recorder,
+      () async {
+        // 録音中なら止める（録音してないなら何もしない）
+        if (isRecording) {
+          await _stopRecording();
+        }
+      },
+    );
 
     // 🔽 初回描画が終わってから UI を使える状態にし、裏で一覧ロード
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -568,6 +581,9 @@ class _RecorderPageState extends State<RecorderPage> {
     try {
       await _checkPermissions();
 
+      // ★追加：録音がマイクを使う前に、他のオーナー（tuner）を止める
+      await MicSessionManager.instance.acquire(MicSessionOwner.recorder);
+
       final dir = await getApplicationDocumentsDirectory();
       final recDir = Directory('${dir.path}/recordings');
       if (!await recDir.exists()) {
@@ -604,6 +620,9 @@ class _RecorderPageState extends State<RecorderPage> {
       );
 
       setState(() => isRecording = false);
+
+      // ★追加：録音が止まったのでマイク所有権を解放
+      MicSessionManager.instance.release(MicSessionOwner.recorder);
 
       // ★ 返ってきたパスを優先（_currentFilePath はフォールバック）
       final path = savedPath ?? _currentFilePath;
@@ -983,12 +1002,7 @@ class _RecorderPageState extends State<RecorderPage> {
                 style: TextStyle(color: Colors.white, fontSize: 18),
               ),
             ),
-            // Drawer の ListTile 群にこれを追加（ヘルプと同列）
-            ListTile(
-              leading: const Icon(Icons.insights),
-              title: Text(AppLocalizations.of(context)!.toneMapperTitle),
-              onTap: () => _openToneMapper(context),
-            ),
+
             ListTile(
               leading: Icon(Icons.help_outline),
               title: Text(
@@ -1006,7 +1020,70 @@ class _RecorderPageState extends State<RecorderPage> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    // ★追加：念のため recorder のマイク所有権を解放
+    MicSessionManager.instance.release(MicSessionOwner.recorder);
+
+    // ★推奨：AudioPlayer の破棄（リーク予防）
+    _player.dispose();
+
+    super.dispose();
+  }
 }
+
+// ===================== ここから追加 =====================
+
+class MainTabScaffold extends StatefulWidget {
+  const MainTabScaffold({super.key});
+
+  @override
+  State<MainTabScaffold> createState() => _MainTabScaffoldState();
+}
+
+class _MainTabScaffoldState extends State<MainTabScaffold> {
+  int _currentIndex = 0;
+
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const RecorderPage(); // ToneDex
+      case 1:
+        return const TunerPage(); // ← 本物のチューナー画面
+      case 2:
+        return const SoundPalettePage(); // Mapper
+      default:
+        return const RecorderPage();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildPage(_currentIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.graphic_eq),
+            label: 'ToneDex',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.tune), label: 'Tuner'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.color_lens_outlined),
+            label: 'Mapper',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===================== ここまで追加 =====================
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -1071,7 +1148,7 @@ class MyApp extends StatelessWidget {
       },
 
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const RecorderPage(), // ← あなたのトップ画面
+      home: const MainTabScaffold(), // ← ここに差し替え
     );
   }
 }

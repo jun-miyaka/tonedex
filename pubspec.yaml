@@ -47,6 +47,11 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
+      # ▼ ここを追加（Tuner用）
+  audio_streamer: ^4.2.2
+  pitch_detector_dart: ^0.0.7
+  cupertino_icons: ^1.0.8
+
 
 dev_dependencies:
   flutter_test:
