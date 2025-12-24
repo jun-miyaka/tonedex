@@ -16,6 +16,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import '../l10n/app_localizations.dart';
 import '../audio/mic_session_manager.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ★ 追加：アプリ全体で使い回す共有の PitchSource
 final PitchSource sharedPitchSource = PitchSource();
@@ -51,10 +53,12 @@ class RealTimeTunerPanel extends StatefulWidget {
   State<RealTimeTunerPanel> createState() => _RealTimeTunerPanelState();
 }
 
-class _RealTimeTunerPanelState extends State<RealTimeTunerPanel> {
+class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
+    with WidgetsBindingObserver {
   double _currentCents = 0.0;
   double _currentFreqHz = 440.0;
   String _currentNoteLabel = 'A4';
+  StreamSubscription<double>? _pitchStreamSub;
 
   // なめらか表示用の内部状態
   double _smoothedCents = 0.0;
@@ -66,7 +70,23 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initPitchListening();
+  }
+
+  @override
+  void deactivate() {
+    // ★言語切替などで Widget が一時的にツリーから外れるタイミングで止める
+    sharedPitchSource.stop();
+    super.deactivate();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      sharedPitchSource.stop();
+    }
   }
 
   /// マイク権限を取得してからピッチ検出を開始する
@@ -87,7 +107,7 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel> {
     });
 
     // 共有の PitchSource からピッチ値を受け取る
-    sharedPitchSource.stream.listen((hz) {
+    _pitchStreamSub = sharedPitchSource.stream.listen((hz) {
       final baseA4 = sharedBaseA4Hz.value;
       final noteNum = hzToNoteNumberWithBaseA4(hz, widget.baseA4Hz);
 
@@ -135,6 +155,10 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel> {
 
   @override
   void dispose() {
+    _pitchStreamSub?.cancel();
+    _pitchStreamSub = null;
+    // ★追加：画面が破棄されるときは必ずマイク/ストリームも止める
+    sharedPitchSource.stop();
     // sharedPitchSource はアプリ全体で使い回すのでここでは dispose しない
     super.dispose();
   }
@@ -327,6 +351,27 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
   double? _stabilityPercent;
   int? _score;
 
+  // --- Action comment（結果表示の後に出す） ---
+  bool _showActionComment = false;
+  String? _actionCommentText;
+  int _lastActionCommentIndex = -1;
+
+  String _pickActionComment(AppLocalizations l10n) {
+    final comments = <String>[
+      l10n.tunerActionComment1,
+      l10n.tunerActionComment2,
+      l10n.tunerActionComment3,
+      l10n.tunerActionComment4,
+    ];
+
+    int idx = math.Random().nextInt(comments.length);
+    if (comments.length >= 2 && idx == _lastActionCommentIndex) {
+      idx = (idx + 1) % comments.length;
+    }
+    _lastActionCommentIndex = idx;
+    return comments[idx];
+  }
+
   // ★ 追加：オクターブ自動判定用の状態
   int? _targetPitchClass; // 0〜11（C〜B）
   int? _autoTargetNoteNumber; // 実際に使うMIDIノート番号（オクターブ込み）
@@ -365,6 +410,12 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _restoreLastPitchCheck();
+  }
+
+  @override
   void dispose() {
     _countdownTimer?.cancel();
     _measureTimer?.cancel();
@@ -378,9 +429,9 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
     if (_isCountingDown || _isMeasuring) return;
 
     // ★ ここを追加
-    debugPrint(
-      'DEBUG: _startPitchCheck called, duration=$_measureDurationSeconds',
-    );
+    //    debugPrint(
+    //      'DEBUG: _startPitchCheck called, duration=$_measureDurationSeconds',
+    //    );
 
     // 前回結果をクリア
     setState(() {
@@ -422,7 +473,7 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
       });
 
       // ★ カウントダウンのログ
-      debugPrint('DEBUG: countdown = $_countdownSeconds');
+      //      debugPrint('DEBUG: countdown = $_countdownSeconds');
 
       if (_countdownSeconds <= 0) {
         timer.cancel();
@@ -458,7 +509,7 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
       if (hz <= 0) return;
 
       // ★ 入ってくるhzの様子を見る
-      debugPrint('DEBUG: pitch stream hz=$hz');
+      //      debugPrint('DEBUG: pitch stream hz=$hz');
 
       // ★ 最初の1回だけ、実際のピッチから「どのオクターブか」を決める
       if (_targetHzForCheck == null) {
@@ -511,9 +562,9 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
   // PitchCheckControlPanelState にある _finishMeasurement の修正版
 
   void _finishMeasurement() {
-    debugPrint(
-      'DEBUG: _finishMeasurement called, samples=${_centsSamples.length}',
-    );
+    //    debugPrint(
+    //      'DEBUG: _finishMeasurement called, samples=${_centsSamples.length}',
+    //    );
     _measureTimer?.cancel();
     _pitchSub?.cancel();
     _pitchSub = null;
@@ -573,7 +624,15 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
       _stabilityPercent = stability;
       _score = score;
       _lastCentsTimeline = samples; // ★ ミニグラフ用に保存
+
+      // ★ 追加：計測が終わったらアクションコメントを出す（結果が出たときだけ）
+      final l10n = AppLocalizations.of(context)!;
+      _actionCommentText = _pickActionComment(l10n);
+      _showActionComment = true;
     });
+
+    // ★ 最後の結果を保存（B案）
+    _saveLastPitchCheck();
 
     // 親ウィジェットへの通知（必要なら使う）
     // ※ サンプルが取れていて、各値がnullでないときだけ通知する
@@ -729,6 +788,72 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
 
   // 直近の測定での cents 推移（ミニグラフ表示用）
   List<double> _lastCentsTimeline = [];
+
+  // --- Last result persistence (B: restore only the latest) ---
+  static const String _kPrefKeyLastPitchCheck = 'last_pitch_check_v1';
+
+  Future<void> _restoreLastPitchCheck() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(_kPrefKeyLastPitchCheck);
+    if (jsonStr == null || jsonStr.trim().isEmpty) return;
+
+    try {
+      final m = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final timeline = ((m['timeline'] as List?) ?? const [])
+          .map((e) => (e as num).toDouble())
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _selectedNoteLabel = (m['note'] as String?) ?? _selectedNoteLabel;
+        _baseA4Hz = ((m['baseA4'] as num?)?.toDouble()) ?? _baseA4Hz;
+        _measureDurationSeconds =
+            ((m['duration'] as num?)?.toInt()) ?? _measureDurationSeconds;
+        _lastMeasuredSeconds = (m['lastMeasuredSeconds'] as num?)?.toInt();
+
+        _sampleCount = (m['sampleCount'] as num?)?.toInt() ?? 0;
+        _avgAbsErrorCents = (m['avgAbs'] as num?)?.toDouble();
+        _stabilityPercent = (m['stability'] as num?)?.toDouble();
+        _score = (m['score'] as num?)?.toInt();
+
+        // ★ あなたのコードで使っている「ミニグラフ保存先」
+        _lastCentsTimeline = timeline;
+
+        // アクションコメントは「復元時は表示しない」がおすすめ（うるさくならない）
+        _showActionComment = false;
+        _actionCommentText = null;
+      });
+    } catch (_) {
+      // 壊れてたら無視
+    }
+  }
+
+  Future<void> _saveLastPitchCheck() async {
+    // 結果が無いなら保存しない
+    if (_score == null ||
+        _avgAbsErrorCents == null ||
+        _stabilityPercent == null) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+
+    final payload = <String, dynamic>{
+      'note': _selectedNoteLabel,
+      'baseA4': _baseA4Hz,
+      'duration': _measureDurationSeconds,
+      'lastMeasuredSeconds': _lastMeasuredSeconds,
+      'sampleCount': _sampleCount,
+      'avgAbs': _avgAbsErrorCents,
+      'stability': _stabilityPercent,
+      'score': _score,
+      'timeline': _lastCentsTimeline, // List<double>
+      'savedAt': DateTime.now().toIso8601String(),
+    };
+
+    await prefs.setString(_kPrefKeyLastPitchCheck, jsonEncode(payload));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -928,6 +1053,44 @@ class _PitchCheckControlPanelState extends State<PitchCheckControlPanel> {
             ],
 
             const SizedBox(height: 8),
+
+            // ★ 追加：分析後コメント（×で閉じる）
+            if (_showActionComment && (_actionCommentText?.isNotEmpty ?? false))
+              Card(
+                elevation: 0,
+                color: Colors.grey.shade100,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.grey.shade300),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.lightbulb_outline, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _actionCommentText!,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: AppLocalizations.of(context)!.close,
+                        onPressed: () {
+                          setState(() => _showActionComment = false);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // 結果を共有ボタン
             SizedBox(

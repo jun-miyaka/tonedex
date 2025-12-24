@@ -66,6 +66,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutZScoreDescription => '每个参数都会用 Z 分数进行标准化（平均值=0，标准差=1），便于比较：\n\nZ ≈ 0 → 平均水平\nZ ≈ ±1 → 略高 / 略低\nZ ≥ ±2 → 明显不同';
 
   @override
+  String get toneDexMapHelpTitle => '关于 ToneDex（音色地图）';
+
+  @override
+  String get toneDexMapHelpBody => 'ToneDex（音色地图）用于将多段录音的音质以“相对位置”的方式进行可视化，帮助从整体上观察不同录音之间的音色差异。\n\n横轴表示 Focused（集中）↔ Broad（分散），由 Bandwidth 和 ZCR 的组合计算得出。\n纵轴表示 Warm（沉稳）↔ Brilliant（明亮），由 Centroid 和 Brightness 的组合计算得出。\n\n注意：该地图中的位置是基于当前录音数据范围进行相对归一化的，因此不适合与其他录音批次的结果直接进行比较。';
+
+  @override
   String get notes => '注意事项';
 
   @override
@@ -312,6 +318,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String pitchGraphTitle(int seconds) {
     return '$seconds秒内的音高变化（音分）';
   }
+
+  @override
+  String get actionComment1 => '今天的挑战怎么样？';
+
+  @override
+  String get actionComment2 => '要不要分享一下结果？';
+
+  @override
+  String get actionComment3 => '结果如何？解读方法在帮助里。';
+
+  @override
+  String get actionComment4 => '把多次录音放在一起对比，会更容易看出差异。';
+
+  @override
+  String get close => '关闭';
+
+  @override
+  String get tunerActionComment1 => '今天的挑战怎么样？';
+
+  @override
+  String get tunerActionComment2 => '要不要分享一下结果？';
+
+  @override
+  String get tunerActionComment3 => '结果如何？指标的说明可以在帮助中查看。';
+
+  @override
+  String get tunerActionComment4 => '也可以试试其他音高。';
+
+  @override
+  String get toneDexMapCaption => '显示当前录音中音色的相对位置关系';
+
+  @override
+  String get focusedLabel => 'Focused（集中感）';
+
+  @override
+  String get broadLabel => 'Broad（分散感）';
+
+  @override
+  String get warmLabel => 'Warm（沉稳）';
+
+  @override
+  String get brilliantLabel => 'Brilliant（明亮）';
+
+  @override
+  String get homeIntroLine1 => '通过 5 秒录音，用数据和图表将你的乐器音色可视化';
+
+  @override
+  String get homeIntroLine2 => '点击“开始录音”，开启声音探索之旅';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -374,6 +428,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aboutZScoreDescription => '每個參數都會使用 Z 分數標準化（平均值=0，標準差=1），方便比較：\n\nZ ≈ 0 → 一般水準\nZ ≈ ±1 → 稍高 / 稍低\nZ ≥ ±2 → 差異明顯';
+
+  @override
+  String get toneDexMapHelpTitle => '關於 ToneDex（音色地圖）';
+
+  @override
+  String get toneDexMapHelpBody => 'ToneDex（音色地圖）是將多筆錄音的音質以「相對位置」方式呈現的圖表，可用來整體觀察不同錄音之間的音色差異。\n\n橫軸代表 Focused（集中）↔ Broad（分散），由 Bandwidth 與 ZCR 的組合計算而成。\n縱軸代表 Warm（沉穩）↔ Brilliant（明亮），由 Centroid 與 Brightness 的組合計算而成。\n\n注意：此地圖會根據本次錄音資料的範圍進行相對位置調整，因此不適合直接與其他錄音階段的結果進行比較。';
 
   @override
   String get notes => '注意事項';
@@ -622,4 +682,52 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String pitchGraphTitle(int seconds) {
     return '$seconds秒內的音高變化（音分）';
   }
+
+  @override
+  String get actionComment1 => '今天的挑戰怎麼樣？';
+
+  @override
+  String get actionComment2 => '要不要分享一下結果？';
+
+  @override
+  String get actionComment3 => '結果如何？解讀方法在說明裡。';
+
+  @override
+  String get actionComment4 => '把多次錄音放在一起比較，差異會更清楚。';
+
+  @override
+  String get close => '關閉';
+
+  @override
+  String get tunerActionComment1 => '今天的挑戰怎麼樣？';
+
+  @override
+  String get tunerActionComment2 => '要不要分享一下結果？';
+
+  @override
+  String get tunerActionComment3 => '結果如何？指標的說明可以在說明中查看。';
+
+  @override
+  String get tunerActionComment4 => '也可以試試其他音高。';
+
+  @override
+  String get toneDexMapCaption => '顯示目前錄音中音色的相對位置關係';
+
+  @override
+  String get focusedLabel => 'Focused（集中感）';
+
+  @override
+  String get broadLabel => 'Broad（分散感）';
+
+  @override
+  String get warmLabel => 'Warm（沉穩）';
+
+  @override
+  String get brilliantLabel => 'Brilliant（明亮）';
+
+  @override
+  String get homeIntroLine1 => '透過 5 秒錄音，以數據與圖表將你的樂器音色可視化';
+
+  @override
+  String get homeIntroLine2 => '點擊「開始錄音」，展開聲音探索之旅';
 }

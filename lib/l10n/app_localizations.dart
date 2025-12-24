@@ -212,6 +212,18 @@ abstract class AppLocalizations {
   /// **'Each parameter is standardized (mean = 0, std dev = 1) using Z-scores for comparison:\n\nZ ≈ 0 → Average\nZ ≈ ±1 → Slightly high/low\nZ ≥ ±2 → Significantly different'**
   String get aboutZScoreDescription;
 
+  /// No description provided for @toneDexMapHelpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About ToneDex (Map)'**
+  String get toneDexMapHelpTitle;
+
+  /// No description provided for @toneDexMapHelpBody.
+  ///
+  /// In en, this message translates to:
+  /// **'ToneDex (Map) visualizes the relative positions of multiple recordings based on their sound characteristics. It is intended as an overview to compare tonal differences between recordings.\n\nThe horizontal axis represents Focused ↔ Broad, calculated from a combination of Bandwidth and ZCR.\nThe vertical axis represents Warm ↔ Brilliant, calculated from a combination of Centroid and Brightness.\n\nNote: The positions on this map are normalized within the current recording set. Therefore, the map is not intended for direct comparison across different recording sessions.'**
+  String get toneDexMapHelpBody;
+
   /// No description provided for @notes.
   ///
   /// In en, this message translates to:
@@ -691,6 +703,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pitch change in {seconds} sec (cents)'**
   String pitchGraphTitle(int seconds);
+
+  /// No description provided for @actionComment1.
+  ///
+  /// In en, this message translates to:
+  /// **'How was today’s challenge?'**
+  String get actionComment1;
+
+  /// No description provided for @actionComment2.
+  ///
+  /// In en, this message translates to:
+  /// **'Want to share your results?'**
+  String get actionComment2;
+
+  /// No description provided for @actionComment3.
+  ///
+  /// In en, this message translates to:
+  /// **'How did it look? Check Help for how to interpret it.'**
+  String get actionComment3;
+
+  /// No description provided for @actionComment4.
+  ///
+  /// In en, this message translates to:
+  /// **'Try comparing multiple recordings—it makes differences clearer.'**
+  String get actionComment4;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @tunerActionComment1.
+  ///
+  /// In en, this message translates to:
+  /// **'How was today’s challenge?'**
+  String get tunerActionComment1;
+
+  /// No description provided for @tunerActionComment2.
+  ///
+  /// In en, this message translates to:
+  /// **'Would you like to share your results?'**
+  String get tunerActionComment2;
+
+  /// No description provided for @tunerActionComment3.
+  ///
+  /// In en, this message translates to:
+  /// **'How did it look? You can find explanations of the metrics in Help.'**
+  String get tunerActionComment3;
+
+  /// No description provided for @tunerActionComment4.
+  ///
+  /// In en, this message translates to:
+  /// **'Try testing with other notes as well.'**
+  String get tunerActionComment4;
+
+  /// No description provided for @toneDexMapCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the relative position of each sound within the current recordings'**
+  String get toneDexMapCaption;
+
+  /// No description provided for @focusedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Focused'**
+  String get focusedLabel;
+
+  /// No description provided for @broadLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Broad'**
+  String get broadLabel;
+
+  /// No description provided for @warmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm'**
+  String get warmLabel;
+
+  /// No description provided for @brilliantLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Brilliant'**
+  String get brilliantLabel;
+
+  /// No description provided for @homeIntroLine1.
+  ///
+  /// In en, this message translates to:
+  /// **'Visualize your instrument’s tone with numbers and graphs in just 5 seconds'**
+  String get homeIntroLine1;
+
+  /// No description provided for @homeIntroLine2.
+  ///
+  /// In en, this message translates to:
+  /// **'Press “Start Recording” to begin exploring your sound'**
+  String get homeIntroLine2;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

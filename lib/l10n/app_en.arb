@@ -19,6 +19,8 @@
     "analysisParametersDescription": "The following 5 parameters are analyzed:\n\n• RMS: Energy or loudness of the sound.\n• ZCR: Zero-crossing rate, related to noise or attack.\n• Spectral Centroid: Indicates brightness or sharpness.\n• Bandwidth: Shows the spread of frequencies.\n• Brightness: High-frequency ratio (0.0–1.0 scale).",
     "aboutZScore": "About Z-Score",
     "aboutZScoreDescription": "Each parameter is standardized (mean = 0, std dev = 1) using Z-scores for comparison:\n\nZ ≈ 0 → Average\nZ ≈ ±1 → Slightly high/low\nZ ≥ ±2 → Significantly different",
+    "toneDexMapHelpTitle": "About ToneDex (Map)",
+    "toneDexMapHelpBody": "ToneDex (Map) visualizes the relative positions of multiple recordings based on their sound characteristics. It is intended as an overview to compare tonal differences between recordings.\n\nThe horizontal axis represents Focused ↔ Broad, calculated from a combination of Bandwidth and ZCR.\nThe vertical axis represents Warm ↔ Brilliant, calculated from a combination of Centroid and Brightness.\n\nNote: The positions on this map are normalized within the current recording set. Therefore, the map is not intended for direct comparison across different recording sessions.",
     "notes": "Notes",
     "notesDescription": "If RMS is too high or low, other values may be affected. Be careful comparing files with very different volume levels.",
     "rmsLabel": "RMS (Volume)",
@@ -111,5 +113,21 @@
                 "description": "Duration in seconds"
             }
         }
-    }
+    },
+    "actionComment1": "How was today’s challenge?",
+    "actionComment2": "Want to share your results?",
+    "actionComment3": "How did it look? Check Help for how to interpret it.",
+    "actionComment4": "Try comparing multiple recordings—it makes differences clearer.",
+    "close": "Close",
+    "tunerActionComment1": "How was today’s challenge?",
+    "tunerActionComment2": "Would you like to share your results?",
+    "tunerActionComment3": "How did it look? You can find explanations of the metrics in Help.",
+    "tunerActionComment4": "Try testing with other notes as well.",
+    "toneDexMapCaption": "Shows the relative position of each sound within the current recordings",
+    "focusedLabel": "Focused",
+    "broadLabel": "Broad",
+    "warmLabel": "Warm",
+    "brilliantLabel": "Brilliant",
+    "homeIntroLine1": "Visualize your instrument’s tone with numbers and graphs in just 5 seconds",
+    "homeIntroLine2": "Press “Start Recording” to begin exploring your sound"
 }

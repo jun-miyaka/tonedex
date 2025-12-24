@@ -66,6 +66,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutZScoreDescription => '各パラメーターはZスコアにより標準化され（平均0、標準偏差1）、比較しやすくなっています：\n\nZ ≈ 0 → 平均的\nZ ≈ ±1 → やや高め／低め\nZ ≥ ±2 → 顕著な差あり';
 
   @override
+  String get toneDexMapHelpTitle => 'ToneDex（マップ）について';
+
+  @override
+  String get toneDexMapHelpBody => 'ToneDex（マップ）は、複数の録音の音質を「位置関係」として比較する図です。録音同士の音色の違いを俯瞰するための目安として使えます。\n\n横軸は Focused（集中）↔ Broad（分散）を表し、Bandwidth と ZCR の組合せから計算しています。\n縦軸は Warm（落ち着き）↔ Brilliant（きらびやか）を表し、Centroid と Brightness の組合せから計算しています。\n\n※このマップは、今回録音したデータの範囲内で相対的に位置を調整しています。そのため、別の録音セッションのグラフと直接比較する用途には向いていません。';
+
+  @override
   String get notes => '注意事項';
 
   @override
@@ -312,4 +318,52 @@ class AppLocalizationsJa extends AppLocalizations {
   String pitchGraphTitle(int seconds) {
     return '$seconds秒間のピッチ推移（cents）';
   }
+
+  @override
+  String get actionComment1 => '今日のチャレンジはどうでしたか？';
+
+  @override
+  String get actionComment2 => '結果をシェアしてみませんか？';
+
+  @override
+  String get actionComment3 => 'どんな結果でしたか？解釈方法はヘルプにあります';
+
+  @override
+  String get actionComment4 => '複数の録音を並べると違いがよく分かります';
+
+  @override
+  String get close => '閉じる';
+
+  @override
+  String get tunerActionComment1 => '今日のチャレンジはどうでしたか？';
+
+  @override
+  String get tunerActionComment2 => '結果をシェアしてみませんか？';
+
+  @override
+  String get tunerActionComment3 => 'どんな結果でしたか？指標の説明はヘルプにあります';
+
+  @override
+  String get tunerActionComment4 => '他の音でも試してみましょう。';
+
+  @override
+  String get toneDexMapCaption => '今回の録音内での音の相対的な位置関係を示します';
+
+  @override
+  String get focusedLabel => 'Focused（集中）';
+
+  @override
+  String get broadLabel => 'Broad（分散）';
+
+  @override
+  String get warmLabel => 'Warm（落ち着き）';
+
+  @override
+  String get brilliantLabel => 'Brilliant（きらびやか）';
+
+  @override
+  String get homeIntroLine1 => '5秒の録音で、あなたの楽器の音色を数値やグラフで可視化';
+
+  @override
+  String get homeIntroLine2 => '「録音開始」を押して、音の探求を始めましょう';
 }

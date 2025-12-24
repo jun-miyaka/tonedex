@@ -20,6 +20,10 @@ import 'package:sax_app/l10n/app_localizations.dart';
 import 'package:sound_palette/sound_palette.dart'; // ← pubspec の path 依存で使えるように
 import 'tuner/tuner_page.dart';
 import 'audio/mic_session_manager.dart';
+import 'dart:convert';
+import 'package:flutter/scheduler.dart'; // 追加（上のimport群に）
+
+const String _kPrefKeyLastToneDex = 'last_tonedex_result_v1';
 
 // ▼ Calibrated/Z-score 表示モード
 enum DisplayMode { raw, zscore }
@@ -117,6 +121,8 @@ class RecorderPage extends StatefulWidget {
 class _RecorderPageState extends State<RecorderPage> {
   final GlobalKey _graphKey = GlobalKey(); // Stateの中で宣言
   final List<GlobalKey> _chartKeys = List.generate(5, (_) => GlobalKey());
+  final GlobalKey _toneDexMapKey = GlobalKey(); // ★ ToneDex Map キャプチャ用
+
   bool _isReady = false;
   bool _listReady = false; // 初回ロード完了フラグ
   bool _busy = false; // 操作直列化ロック
@@ -124,6 +130,57 @@ class _RecorderPageState extends State<RecorderPage> {
   // ▼ カウントダウン関連の状態
   bool _showCountdown = false;
   String _countdownText = '';
+
+  // --- Action comment (shown only after analysis) ---
+  bool _showActionComment = false;
+  String _actionComment = '';
+
+  String _safeLabel(int i) {
+    if (i >= 0 && i < labels.length) return labels[i];
+    if (i >= 0 && i < fileNames.length) {
+      return fileNames[i].split('/').last.replaceAll('.wav', '');
+    }
+    return '';
+  }
+
+  Widget _buildHomeIntroCard(AppLocalizations l10n) {
+    // 録音が1件でもあれば「使い始めた」とみなし、表示しない
+    if (fileNames.isNotEmpty) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1行目：電球アイコン付き
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.lightbulb_outline,
+                  size: 18,
+                  color: Colors.amber,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    l10n.homeIntroLine1,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // 2行目：通常テキスト
+            Text(l10n.homeIntroLine2, style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
 
   // ← クラスの中、build()より上
   String _modeLabel(BuildContext context) {
@@ -150,6 +207,47 @@ class _RecorderPageState extends State<RecorderPage> {
         child: Text(
           'Mode: $modeLabel', // 「Mode: 」もARB化したければ l10n.modePrefix を作成
           style: const TextStyle(fontSize: 12, color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  String _pickActionComment(AppLocalizations l10n) {
+    final candidates = <String>[
+      l10n.actionComment1,
+      l10n.actionComment2,
+      l10n.actionComment3,
+      l10n.actionComment4,
+    ]..removeWhere((s) => s.trim().isEmpty);
+
+    if (candidates.isEmpty) return '';
+    final idx = DateTime.now().millisecondsSinceEpoch % candidates.length;
+    return candidates[idx];
+  }
+
+  Widget _buildActionCommentCard(AppLocalizations l10n) {
+    if (!_showActionComment || _actionComment.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lightbulb_outline),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(_actionComment, style: const TextStyle(fontSize: 14)),
+            ),
+            IconButton(
+              tooltip: l10n.close,
+              icon: const Icon(Icons.close),
+              onPressed: () => setState(() => _showActionComment = false),
+            ),
+          ],
         ),
       ),
     );
@@ -287,6 +385,83 @@ class _RecorderPageState extends State<RecorderPage> {
     }
   }
 
+  // === Session restore (last one) =============================================
+
+  static const String _kToneDexSessionKey = 'tonedex_last_session_v1';
+
+  Future<void> _saveLastSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final data = <String, dynamic>{
+        'selectedRecording': _selectedRecording,
+        'mode': _mode.index, // DisplayMode enum の index を保存
+        'fileNames': fileNames,
+        'labels': labels,
+        'results': results, // List<List<double>>
+      };
+
+      await prefs.setString(_kToneDexSessionKey, jsonEncode(data));
+    } catch (_) {
+      // 失敗してもアプリは落とさない（ログだけ欲しければ debugPrint をコメントで残す）
+      // debugPrint('WARN: save session failed: $e');
+    }
+  }
+
+  Future<void> _restoreLastSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kToneDexSessionKey);
+      if (raw == null || raw.isEmpty) return;
+
+      final obj = jsonDecode(raw);
+      if (obj is! Map<String, dynamic>) return;
+
+      final modeIndex = obj['mode'];
+      final restoredMode =
+          (modeIndex is int &&
+              modeIndex >= 0 &&
+              modeIndex < DisplayMode.values.length)
+          ? DisplayMode.values[modeIndex]
+          : _mode;
+
+      final restoredSelected = obj['selectedRecording'] as String?;
+      final restoredFileNames = (obj['fileNames'] is List)
+          ? List<String>.from(obj['fileNames'])
+          : <String>[];
+      final restoredLabels = (obj['labels'] is List)
+          ? List<String>.from(obj['labels'])
+          : <String>[];
+
+      final restoredResults = <List<double>>[];
+      if (obj['results'] is List) {
+        for (final row in (obj['results'] as List)) {
+          if (row is List) {
+            restoredResults.add(row.map((e) => (e as num).toDouble()).toList());
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _mode = restoredMode;
+        _selectedRecording = restoredSelected;
+
+        fileNames = restoredFileNames;
+        labels = restoredLabels;
+        results = restoredResults;
+
+        // ついでに「分析後コメント」は復元しない（うるさくなるので）
+        _showActionComment = false;
+        _actionComment = '';
+      });
+    } catch (_) {
+      // debugPrint('WARN: restore session failed: $e');
+    }
+  }
+
+  // ============================================================================
+
   @override
   void initState() {
     super.initState();
@@ -303,13 +478,14 @@ class _RecorderPageState extends State<RecorderPage> {
     );
 
     // 🔽 初回描画が終わってから UI を使える状態にし、裏で一覧ロード
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _showWelcomeMessageIfFirstLaunch();
       if (mounted) {
         setState(() {
           _isReady = true;
         }); // まずUIを使える状態に
       }
+
       _loadRecordings(); // ← awaitしない。裏で実行（_listReady がtrueになるまでボタンは無効）
       // もし unawaited を使うなら:
       // unawaited(_loadRecordings()); // 要: import 'dart:async';
@@ -366,8 +542,16 @@ class _RecorderPageState extends State<RecorderPage> {
       // ← Calibrated を参照しない2択に変更
       final label = (m == DisplayMode.raw) ? 'Raw' : 'Z-score';
 
+      String safeLabel(int i) {
+        if (i >= 0 && i < labels.length) return labels[i];
+        if (i >= 0 && i < fileNames.length) {
+          return fileNames[i].split('/').last.replaceAll('.wav', '');
+        }
+        return '';
+      }
+
       final body = List.generate(fileNames.length, (i) {
-        final name = labels[i];
+        final name = _safeLabel(i);
         final ok = results.length > i && results[i].length == 5;
         final lines = ok
             ? _formatRecordLines(i, /* 現在の描画モードではなく */ override: m)
@@ -387,19 +571,32 @@ class _RecorderPageState extends State<RecorderPage> {
 
     // 2) チャート画像をキャプチャ（あれば）
     final xfiles = <XFile>[XFile(textFile.path)];
-    final boundary =
-        boundaryKey.currentContext?.findRenderObject()
-            as RenderRepaintBoundary?;
-    if (boundary != null) {
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final pngBytes = byteData!.buffer.asUint8List();
-      final chartFile = File('${dir.path}/chart_$ts.png');
-      await chartFile.writeAsBytes(pngBytes);
-      xfiles.add(XFile(chartFile.path));
-    }
+    //    final boundary =
+    //        boundaryKey.currentContext?.findRenderObject()
+    //            as RenderRepaintBoundary?;
+    //    if (boundary != null) {
+    //      final image = await boundary.toImage(pixelRatio: 3.0);
+    //      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    //      final pngBytes = byteData!.buffer.asUint8List();
+    //      final chartFile = File('${dir.path}/chart_$ts.png');
+    //      await chartFile.writeAsBytes(pngBytes);
+    //      xfiles.add(XFile(chartFile.path));
+    //    }
 
-    // 個別5枚（GraphWidget内で perChartKeys が RepaintBoundary を持っている前提）
+    // ★ ここから追加：Map撮影の直前に描画完了を待つ
+    await SchedulerBinding.instance.endOfFrame;
+    await SchedulerBinding.instance.endOfFrame;
+
+    // 3) ★ Map を 1枚だけ追加（ここが今回の追加）
+    final mapX = await _captureBoundaryToFile(
+      key: _toneDexMapKey,
+      dir: dir,
+      filename: 'chart_map_$ts.png',
+      pixelRatio: 1.5,
+    );
+    if (mapX != null) xfiles.add(mapX);
+
+    //4) 個別5枚（GraphWidget内で perChartKeys が RepaintBoundary を持っている前提）
     const names = ['rms', 'zcr', 'centroid', 'bandwidth', 'brightness'];
     await Future.delayed(const Duration(milliseconds: 50)); // レイアウト安定待ち
 
@@ -418,11 +615,50 @@ class _RecorderPageState extends State<RecorderPage> {
     }
 
     // 3) 共有シートを開く（share_plus）
-    await Share.shareXFiles(
-      xfiles,
-      text: 'ToneDex analysis (Raw / Calibrated / Z-score) — $ts',
-      subject: 'ToneDex analysis $ts',
-    );
+    try {
+      await Share.shareXFiles(xfiles, subject: 'ToneDex analysis $ts');
+    } catch (e, st) {
+      debugPrint('ERROR: Share.shareXFiles failed: $e');
+      debugPrint(st.toString());
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    }
+  }
+
+  Future<XFile?> _captureBoundaryToFile({
+    required GlobalKey key,
+    required Directory dir,
+    required String filename,
+    double pixelRatio = 2.0,
+  }) async {
+    final ctx = key.currentContext;
+    if (ctx == null) return null;
+
+    final ro = ctx.findRenderObject();
+    if (ro is! RenderRepaintBoundary) return null;
+
+    // ✅ ここが肝：描画完了まで最大数フレーム待つ
+    int tries = 0;
+    while (ro.debugNeedsPaint && tries < 20) {
+      // 20フレーム(≈0.3s)まで待つ
+      await SchedulerBinding.instance.endOfFrame; // ★ これが効く
+      tries++;
+    }
+
+    // まだなら「今回は諦める」（落とさない）
+    if (ro.debugNeedsPaint) return null;
+
+    final ui.Image img = await ro.toImage(pixelRatio: pixelRatio);
+    final ByteData? bd = await img.toByteData(format: ui.ImageByteFormat.png);
+    img.dispose();
+    if (bd == null) return null;
+
+    final bytes = bd.buffer.asUint8List();
+    final f = File('${dir.path}/$filename');
+    await f.writeAsBytes(bytes, flush: true);
+    return XFile(f.path);
   }
 
   Future<void> _shareAllAnalysisResults(GlobalKey boundaryKey) async {
@@ -431,7 +667,7 @@ class _RecorderPageState extends State<RecorderPage> {
     // テキストファイルの生成
     final textFile = File('${dir.path}/analysis_results.txt');
     final textContent = List.generate(fileNames.length, (i) {
-      final name = labels[i];
+      final name = _safeLabel(i);
       final result = results.length > i && results[i].length == 5
           ? _formatRecordLines(i) // ← フォーマッタ呼び出しに置換
           : '未分析または不完全';
@@ -641,6 +877,7 @@ class _RecorderPageState extends State<RecorderPage> {
 
         // 一覧・グラフを再読込
         await _loadRecordings();
+        _saveLastSession();
       }
     } on PlatformException catch (e) {
       debugPrint('❌ 録音停止失敗: $e');
@@ -726,9 +963,12 @@ class _RecorderPageState extends State<RecorderPage> {
           "ZCR": results[1],
           "Centroid": results[2],
           "Bandwidth": results[3],
-          "Symmetry": results[4],
+          "Brightness": results[4],
         };
       });
+
+      // ★ 追加：分析結果が変わったので保存（ここが挿入箇所）
+      await _saveLastSession();
     } catch (e) {
       print("分析エラー: $e");
     }
@@ -745,6 +985,10 @@ class _RecorderPageState extends State<RecorderPage> {
       } else {
         results.add(analysis);
       }
+      // ★ add: show action comment ONLY after analysis
+      final l10n = AppLocalizations.of(context)!;
+      _actionComment = _pickActionComment(l10n);
+      _showActionComment = true;
     });
   }
 
@@ -766,6 +1010,153 @@ class _RecorderPageState extends State<RecorderPage> {
     if (std == 0) return List.filled(values.length, 0.0);
     return values.map((x) => (x - mean) / std).toList();
   }
+
+  // ===================== ToneDex Map (2D) =====================
+
+  double _minMaxNorm(double x, double mn, double mx) {
+    final denom = (mx - mn).abs();
+    if (denom < 1e-9) return 0.5; // 全部同じ値のときは中央寄せ
+    return ((x - mn) / denom).clamp(0.0, 1.0);
+  }
+
+  // ★ここに追加（min-max後の0..1を、描画用に余白つきへ）
+  double _applyPlotPadding(double v, {double pad = 0.10}) {
+    final vv = v.clamp(0.0, 1.0);
+    return pad + (1.0 - 2.0 * pad) * vv;
+  }
+
+  /// 分析済み（results[i].length == 5）のインデックスだけ集める
+  List<int> _analyzedIndexes() {
+    final idx = <int>[];
+    for (int i = 0; i < fileNames.length; i++) {
+      if (i < results.length && results[i].length >= 5) idx.add(i);
+    }
+    return idx;
+  }
+
+  /// ToneDex 2D マップを作る（2件以上で表示）
+  Widget _buildToneDexMapCard(AppLocalizations l10n) {
+    final idx = _analyzedIndexes();
+    if (idx.length < 2) return const SizedBox.shrink();
+
+    // Raw列（results[row][col]）
+    // col: 0 RMS, 1 ZCR, 2 Centroid, 3 Bandwidth, 4 Brightness
+    final bw = [for (final i in idx) results[i][3]];
+    final zcr = [for (final i in idx) results[i][1]];
+    final cen = [for (final i in idx) results[i][2]];
+    final bri = [for (final i in idx) results[i][4]];
+
+    final bwMin = bw.reduce(math.min), bwMax = bw.reduce(math.max);
+    final zMin = zcr.reduce(math.min), zMax = zcr.reduce(math.max);
+    final cMin = cen.reduce(math.min), cMax = cen.reduce(math.max);
+    final bMin = bri.reduce(math.min), bMax = bri.reduce(math.max);
+
+    // 点群を作る：X=0.6*BW_norm+0.4*ZCR_norm（Focused負, Broad正）
+    //          Y=0.7*Centroid_norm+0.3*Brightness_norm（Warm下, Brilliant上）
+    final points = <_TonePoint>[];
+    for (final i in idx) {
+      final bwN = _minMaxNorm(results[i][3], bwMin, bwMax);
+      final zN = _minMaxNorm(results[i][1], zMin, zMax);
+      final cN = _minMaxNorm(results[i][2], cMin, cMax);
+      final bN = _minMaxNorm(results[i][4], bMin, bMax);
+
+      // 合成軸（生値）
+      final xRaw = 0.6 * bwN + 0.4 * zN; // Broadほど右
+      final yRaw = 0.7 * cN + 0.3 * bN; // Brilliantほど上
+
+      // ★ 描画用：余白を入れる（2点でも隅に張り付かない）
+      final x = _applyPlotPadding(xRaw, pad: 0.10);
+      final y = _applyPlotPadding(yRaw, pad: 0.10);
+
+      points.add(_TonePoint(label: labels[i], x: x, y: y));
+    }
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ToneDex',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.toneDexMapCaption,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+
+            // ここは「スケルトン表示」でもOK。まずは簡易の枠＋点だけ描く。
+            RepaintBoundary(
+              key: _toneDexMapKey, // ★共有はこのキーを撮る（“見えてるやつ”）
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1.35,
+                    child: Stack(
+                      children: [
+                        // =========================
+                        // (A) 画面表示用（これをそのままキャプチャ）
+                        // =========================
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _ToneMapPainter(
+                              points: points,
+                              focusedLabel: l10n.focusedLabel,
+                              broadLabel: l10n.broadLabel,
+                              warmLabel: l10n.warmLabel,
+                              brilliantLabel: l10n.brilliantLabel,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+
+                        // Y軸上（外側）
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: -2,
+                          child: Center(
+                            child: Text(
+                              l10n.brilliantLabel,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+
+                        // Y軸下（外側）
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: -2,
+                          child: Center(
+                            child: Text(
+                              l10n.warmLabel,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            // 軸ラベル（目盛りなし）
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =================== end ToneDex Map ===================
 
   // 🔽 グラフ描画（5指標すべてをZスコア化して可視化）
   Widget _buildGraph(GlobalKey boundaryKey) {
@@ -908,6 +1299,12 @@ class _RecorderPageState extends State<RecorderPage> {
                 ),
                 const SizedBox(height: 6),
                 _buildModeBadge(context), // ← context引数は不要
+                // ★ 追加：初期状態のみ、3行の説明カード
+                const SizedBox(height: 10),
+                _buildHomeIntroCard(l10n),
+                // ★ add: action comment (only after analysis)
+                const SizedBox(height: 12),
+                _buildActionCommentCard(l10n),
 
                 const SizedBox(height: 16),
 
@@ -965,6 +1362,11 @@ class _RecorderPageState extends State<RecorderPage> {
                     ),
                   );
                 }),
+
+                const SizedBox(height: 16),
+
+                // ★ ToneDex Map（2件以上で表示）
+                _buildToneDexMapCard(l10n),
 
                 const SizedBox(height: 16),
 
@@ -1045,26 +1447,45 @@ class MainTabScaffold extends StatefulWidget {
 class _MainTabScaffoldState extends State<MainTabScaffold> {
   int _currentIndex = 0;
 
-  Widget _buildPage(int index) {
-    switch (index) {
-      case 0:
-        return const RecorderPage(); // ToneDex
-      case 1:
-        return const TunerPage(); // ← 本物のチューナー画面
-      case 2:
-        return const SoundPalettePage(); // Mapper
-      default:
-        return const RecorderPage();
-    }
-  }
+  // ★ 追加：タブを切り替えてもページStateを捨てない（最後の結果が残る）
+  late final List<Widget> _pages = <Widget>[
+    const RecorderPage(), // ToneDex
+    const TunerPage(), // Tuner
+    const SoundPalettePage(), // Mapper
+  ];
+
+  //  Widget _buildPage(int index) {
+  //    switch (index) {
+  //      case 0:
+  //        return const RecorderPage(); // ToneDex
+  //      case 1:
+  //        return const TunerPage(); // ← 本物のチューナー画面
+  //      case 2:
+  //        return const SoundPalettePage(); // Mapper
+  //      default:
+  //        return const RecorderPage();
+  //    }
+  //  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildPage(_currentIndex),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) {
+        onTap: (index) async {
+          if (index == _currentIndex) return;
+
+          // ★追加：タブ切替時にマイクの所有権を切り替える
+          if (index == 1) {
+            // Tunerを開く → tunerがマイクを使えるようにする
+            await MicSessionManager.instance.acquire(MicSessionOwner.tuner);
+          } else {
+            // Tuner以外へ → tunerの所有権を解放
+            MicSessionManager.instance.release(MicSessionOwner.tuner);
+          }
+
+          if (!mounted) return;
           setState(() => _currentIndex = index);
         },
         items: const [
@@ -1150,5 +1571,137 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const MainTabScaffold(), // ← ここに差し替え
     );
+  }
+}
+
+// ---- 内部クラス（この main.dart 内に置いてOK） ----
+class _TonePoint {
+  _TonePoint({required this.label, required this.x, required this.y});
+  final String label;
+  final double x; // 0..1
+  final double y; // 0..1
+}
+
+class _ToneMapPainter extends CustomPainter {
+  _ToneMapPainter({
+    required this.points,
+    required this.focusedLabel,
+    required this.broadLabel,
+    required this.warmLabel,
+    required this.brilliantLabel,
+  });
+
+  final List<_TonePoint> points;
+  final String focusedLabel;
+  final String broadLabel;
+  final String warmLabel;
+  final String brilliantLabel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // ---- 背景：白 ----
+    final bg = Paint()..color = const Color(0xFFFFFFFF);
+    canvas.drawRect(Offset.zero & size, bg);
+
+    // ---- 描画領域（ラベルの余白ぶん内側に寄せる）----
+    const pad = 18.0; // ラベルがはみ出ない程度の余白
+    final rect = Rect.fromLTWH(
+      pad,
+      pad,
+      size.width - pad * 2,
+      size.height - pad * 2,
+    );
+
+    // ---- 外枠 ----
+    final borderPaint = Paint()
+      ..color = const Color(0xFFDDDDDD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawRect(rect, borderPaint);
+
+    // ---- 中心十字（X/Y軸）----
+    final axisPaint = Paint()
+      ..color = const Color(0xFFB0B0B0)
+      ..strokeWidth = 1.0;
+
+    final cx = rect.left + rect.width / 2;
+    final cy = rect.top + rect.height / 2;
+
+    // 横軸
+    canvas.drawLine(Offset(rect.left, cy), Offset(rect.right, cy), axisPaint);
+    // 縦軸
+    canvas.drawLine(Offset(cx, rect.top), Offset(cx, rect.bottom), axisPaint);
+
+    // ---- 軸端ラベル（チャート内の端）----
+    final labelStyle = const TextStyle(fontSize: 12, color: Color(0xFF333333));
+
+    void drawText(String text, Offset pos, {TextAlign align = TextAlign.left}) {
+      final tp = TextPainter(
+        text: TextSpan(text: text, style: labelStyle),
+        textAlign: align,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: rect.width);
+      tp.paint(canvas, pos);
+    }
+
+    // 左（Focused）
+    final tpFocused = TextPainter(
+      text: TextSpan(text: focusedLabel, style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    drawText(focusedLabel, Offset(rect.left + 4, cy + 4));
+
+    // 右（Broad）
+    final tpBroad = TextPainter(
+      text: TextSpan(text: broadLabel, style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    drawText(broadLabel, Offset(rect.right - tpBroad.width - 4, cy + 4));
+
+    // ---- 点 ----
+    final dot = Paint()..color = const Color(0xFF1565C0);
+
+    for (final p in points) {
+      final x01 = p.x.clamp(0.0, 1.0);
+      final y01 = p.y.clamp(0.0, 1.0);
+
+      // rect内へマッピング（yは上が1.0）
+      final px = rect.left + x01 * rect.width;
+      final py = rect.bottom - y01 * rect.height;
+
+      canvas.drawCircle(Offset(px, py), 4.0, dot);
+
+      // ラベル（●の上・中央、rect内に収める）
+      final tp = TextPainter(
+        text: TextSpan(
+          text: p.label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF333333)),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: rect.width);
+
+      const gap = 6.0;
+
+      // 中央寄せ（●の上）
+      final desiredX = px - tp.width / 2;
+      final desiredY = py - tp.height - gap;
+
+      // rect内にクランプ（はみ出し防止）
+      final x = desiredX.clamp(rect.left + 2, rect.right - tp.width - 2);
+      final y = desiredY.clamp(rect.top + 2, rect.bottom - tp.height - 2);
+
+      tp.paint(canvas, Offset(x, y));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ToneMapPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.focusedLabel != focusedLabel ||
+        oldDelegate.broadLabel != broadLabel ||
+        oldDelegate.warmLabel != warmLabel ||
+        oldDelegate.brilliantLabel != brilliantLabel;
   }
 }

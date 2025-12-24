@@ -66,6 +66,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutZScoreDescription => 'Each parameter is standardized (mean = 0, std dev = 1) using Z-scores for comparison:\n\nZ ≈ 0 → Average\nZ ≈ ±1 → Slightly high/low\nZ ≥ ±2 → Significantly different';
 
   @override
+  String get toneDexMapHelpTitle => 'About ToneDex (Map)';
+
+  @override
+  String get toneDexMapHelpBody => 'ToneDex (Map) visualizes the relative positions of multiple recordings based on their sound characteristics. It is intended as an overview to compare tonal differences between recordings.\n\nThe horizontal axis represents Focused ↔ Broad, calculated from a combination of Bandwidth and ZCR.\nThe vertical axis represents Warm ↔ Brilliant, calculated from a combination of Centroid and Brightness.\n\nNote: The positions on this map are normalized within the current recording set. Therefore, the map is not intended for direct comparison across different recording sessions.';
+
+  @override
   String get notes => 'Notes';
 
   @override
@@ -312,4 +318,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String pitchGraphTitle(int seconds) {
     return 'Pitch change in $seconds sec (cents)';
   }
+
+  @override
+  String get actionComment1 => 'How was today’s challenge?';
+
+  @override
+  String get actionComment2 => 'Want to share your results?';
+
+  @override
+  String get actionComment3 => 'How did it look? Check Help for how to interpret it.';
+
+  @override
+  String get actionComment4 => 'Try comparing multiple recordings—it makes differences clearer.';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get tunerActionComment1 => 'How was today’s challenge?';
+
+  @override
+  String get tunerActionComment2 => 'Would you like to share your results?';
+
+  @override
+  String get tunerActionComment3 => 'How did it look? You can find explanations of the metrics in Help.';
+
+  @override
+  String get tunerActionComment4 => 'Try testing with other notes as well.';
+
+  @override
+  String get toneDexMapCaption => 'Shows the relative position of each sound within the current recordings';
+
+  @override
+  String get focusedLabel => 'Focused';
+
+  @override
+  String get broadLabel => 'Broad';
+
+  @override
+  String get warmLabel => 'Warm';
+
+  @override
+  String get brilliantLabel => 'Brilliant';
+
+  @override
+  String get homeIntroLine1 => 'Visualize your instrument’s tone with numbers and graphs in just 5 seconds';
+
+  @override
+  String get homeIntroLine2 => 'Press “Start Recording” to begin exploring your sound';
 }
