@@ -596,7 +596,8 @@ class _RecorderPageState extends State<RecorderPage> {
     );
     if (mapX != null) xfiles.add(mapX);
 
-    //4) 個別5枚（GraphWidget内で perChartKeys が RepaintBoundary を持っている前提）
+    // 4) 個別5枚（GraphWidget内で perChartKeys が RepaintBoundary を持っている前提）
+
     const names = ['rms', 'zcr', 'centroid', 'bandwidth', 'brightness'];
     await Future.delayed(const Duration(milliseconds: 50)); // レイアウト安定待ち
 
@@ -605,9 +606,11 @@ class _RecorderPageState extends State<RecorderPage> {
           _chartKeys[i].currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
       if (b == null) continue;
+
       final img = await b.toImage(pixelRatio: 3.0);
       final bd = await img.toByteData(format: ui.ImageByteFormat.png);
       if (bd == null) continue;
+
       final png = bd.buffer.asUint8List();
       final f = File('${dir.path}/chart_${names[i]}_$ts.png');
       await f.writeAsBytes(png);
@@ -639,20 +642,36 @@ class _RecorderPageState extends State<RecorderPage> {
     final ro = ctx.findRenderObject();
     if (ro is! RenderRepaintBoundary) return null;
 
-    // ✅ ここが肝：描画完了まで最大数フレーム待つ
-    int tries = 0;
-    while (ro.debugNeedsPaint && tries < 20) {
-      // 20フレーム(≈0.3s)まで待つ
-      await SchedulerBinding.instance.endOfFrame; // ★ これが効く
-      tries++;
+    // ✅ releaseでも安全に「描画が落ち着くのを待つ」
+    // - debugNeedsPaint は使わない
+    // - まず数フレーム待ってから toImage を試す
+    for (int i = 0; i < 2; i++) {
+      await SchedulerBinding.instance.endOfFrame;
     }
 
-    // まだなら「今回は諦める」（落とさない）
-    if (ro.debugNeedsPaint) return null;
+    // ✅ toImage が失敗する端末/状況があるので、少数回リトライ
+    const int maxTries = 6;
+    ui.Image? img;
+    ByteData? bd;
 
-    final ui.Image img = await ro.toImage(pixelRatio: pixelRatio);
-    final ByteData? bd = await img.toByteData(format: ui.ImageByteFormat.png);
-    img.dispose();
+    for (int tries = 0; tries < maxTries; tries++) {
+      try {
+        img = await ro.toImage(pixelRatio: pixelRatio);
+        bd = await img.toByteData(format: ui.ImageByteFormat.png);
+        if (bd != null) break;
+      } catch (_) {
+        // 失敗したら次フレームまで待って再試行
+      } finally {
+        // imgは次のtryで上書きされる可能性があるので都度dispose
+        try {
+          img?.dispose();
+        } catch (_) {}
+        img = null;
+      }
+
+      await SchedulerBinding.instance.endOfFrame;
+    }
+
     if (bd == null) return null;
 
     final bytes = bd.buffer.asUint8List();
@@ -1231,18 +1250,37 @@ class _RecorderPageState extends State<RecorderPage> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          // 置換後（標語を復活）
+        toolbarHeight: 72,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('ToneDex', style: TextStyle(fontSize: 20)),
-            const SizedBox(height: 2),
-            Text(
-              AppLocalizations.of(context)!.visualizeYourTone, // ARBの標語キー
-              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+            // ★ ToneDex ロゴ
+            Image.asset(
+              'assets/icon/icon.png',
+              height: 48, // 24〜30で微調整可
+            ),
+            const SizedBox(width: 10),
+
+            // ★ タイトル＋標語（既存構造を維持）
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('ToneDex', style: TextStyle(fontSize: 20)),
+                const SizedBox(height: 2),
+                Text(
+                  AppLocalizations.of(context)!.visualizeYourTone,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
+
         actions: [
           PopupMenuButton<DisplayMode>(
             initialValue: _mode,
@@ -1447,13 +1485,6 @@ class MainTabScaffold extends StatefulWidget {
 class _MainTabScaffoldState extends State<MainTabScaffold> {
   int _currentIndex = 0;
 
-  // ★ 追加：タブを切り替えてもページStateを捨てない（最後の結果が残る）
-  late final List<Widget> _pages = <Widget>[
-    const RecorderPage(), // ToneDex
-    const TunerPage(), // Tuner
-    const SoundPalettePage(), // Mapper
-  ];
-
   //  Widget _buildPage(int index) {
   //    switch (index) {
   //      case 0:
@@ -1470,24 +1501,42 @@ class _MainTabScaffoldState extends State<MainTabScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          const RecorderPage(), // ToneDex
+          TunerPage(isActive: _currentIndex == 1), // ★ここが肝
+          const SoundPalettePage(), // Mapper
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) async {
           if (index == _currentIndex) return;
 
-          // ★追加：タブ切替時にマイクの所有権を切り替える
-          if (index == 1) {
-            // Tunerを開く → tunerがマイクを使えるようにする
-            await MicSessionManager.instance.acquire(MicSessionOwner.tuner);
-          } else {
-            // Tuner以外へ → tunerの所有権を解放
-            MicSessionManager.instance.release(MicSessionOwner.tuner);
-          }
-
+          // ① 先にUIを切り替える（まず表示を確実に更新）
           if (!mounted) return;
           setState(() => _currentIndex = index);
+
+          // ② 1フレーム待って「切替先タブが実際に描画された後」にマイク制御
+          await SchedulerBinding.instance.endOfFrame;
+
+          // ③ タブに応じて所有権を切替（tuner / mapper / recorder を明示）
+          if (index == 1) {
+            await MicSessionManager.instance.acquire(MicSessionOwner.tuner);
+            MicSessionManager.instance.release(MicSessionOwner.mapper);
+            MicSessionManager.instance.release(MicSessionOwner.recorder);
+          } else if (index == 2) {
+            await MicSessionManager.instance.acquire(MicSessionOwner.mapper);
+            MicSessionManager.instance.release(MicSessionOwner.tuner);
+            MicSessionManager.instance.release(MicSessionOwner.recorder);
+          } else {
+            await MicSessionManager.instance.acquire(MicSessionOwner.recorder);
+            MicSessionManager.instance.release(MicSessionOwner.tuner);
+            MicSessionManager.instance.release(MicSessionOwner.mapper);
+          }
         },
+
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.graphic_eq),

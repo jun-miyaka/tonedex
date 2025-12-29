@@ -49,6 +49,14 @@ class HelpPage extends StatelessWidget {
 
               const SizedBox(height: 16),
               Text(
+                AppLocalizations.of(context)!.toneDexMapHelpTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(AppLocalizations.of(context)!.toneDexMapHelpBody),
+
+              const SizedBox(height: 16),
+              Text(
                 AppLocalizations.of(context)!.aboutToneMapper,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),

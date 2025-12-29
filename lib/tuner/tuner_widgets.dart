@@ -18,6 +18,7 @@ import '../l10n/app_localizations.dart';
 import '../audio/mic_session_manager.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/scheduler.dart';
 
 // ★ 追加：アプリ全体で使い回す共有の PitchSource
 final PitchSource sharedPitchSource = PitchSource();
@@ -44,10 +45,10 @@ double centsErrorForNoteNumberWithBaseA4(
 }
 
 /// リアルタイムチューナー表示用パネル。
-/// リアルタイムチューナー表示用パネル。
 class RealTimeTunerPanel extends StatefulWidget {
-  final double baseA4Hz;
-  const RealTimeTunerPanel({super.key, required this.baseA4Hz});
+  const RealTimeTunerPanel({super.key, required this.isActive});
+
+  final bool isActive;
 
   @override
   State<RealTimeTunerPanel> createState() => _RealTimeTunerPanelState();
@@ -67,56 +68,115 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
 
   static const double _maxDisplayCents = 30.0; // 表示レンジ ±30c
 
+  bool _hasRequestedPermission = false;
+  bool _isEnsuring = false; // 多重キックのガード（最小）
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initPitchListening();
+
+    // init時点で既にアクティブなら、フレーム後に開始キック
+    if (widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ensureRunning(reason: 'init-active');
+      });
+    }
   }
 
   @override
-  void deactivate() {
-    // ★言語切替などで Widget が一時的にツリーから外れるタイミングで止める
-    sharedPitchSource.stop();
-    super.deactivate();
+  void didUpdateWidget(covariant RealTimeTunerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 非アクティブ→アクティブになった瞬間に、確実に start を叩く
+    if (!oldWidget.isActive && widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ensureRunning(reason: 'tab-visible');
+      });
+    }
   }
+
+  // ★重要：deactivate で stop しない（タブ切替/言語切替等で止めると今回の問題が再発し得る）
+  // @override
+  // void deactivate() {
+  //   sharedPitchSource.stop();
+  //   super.deactivate();
+  // }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
-      sharedPitchSource.stop();
+    // ★resumeで、Tunerがアクティブなら必ず開始キック
+    if (state == AppLifecycleState.resumed && widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ensureRunning(reason: 'resumed');
+      });
+    }
+
+    // ★方針：inactive/paused で stop しない
+  }
+
+  /// ★Tunerタブ表示/復帰で「開始キック」するための関数
+  /// - ここで tuner の mic所有権を acquire → endOfFrame → start の順で保証
+  Future<void> ensureRunning({String reason = ''}) async {
+    if (!mounted) return;
+    if (!widget.isActive) return;
+    if (_isEnsuring) return;
+    _isEnsuring = true;
+
+    try {
+      // 0) tuner に mic 所有権を寄せる（main側の順序に依存しない）
+      await MicSessionManager.instance.acquire(MicSessionOwner.tuner);
+
+      // 1) マイク権限
+      if (!_hasRequestedPermission) {
+        _hasRequestedPermission = true;
+        final st = await Permission.microphone.request();
+        if (!st.isGranted) return;
+      } else {
+        final st = await Permission.microphone.status;
+        if (!st.isGranted) return;
+      }
+
+      // 2) 描画完了待ち（start空振り対策 & debugNeedsPaint系の回避）
+      await SchedulerBinding.instance.endOfFrame;
+
+      // 3) start を再キック
+      await sharedPitchSource.start();
+    } finally {
+      _isEnsuring = false;
     }
   }
 
-  /// マイク権限を取得してからピッチ検出を開始する
+  /// マイク権限を取得してからピッチ検出を開始する（購読セットアップ中心）
   Future<void> _initPitchListening() async {
-    // マイク権限リクエスト
-    final status = await Permission.microphone.request();
-    if (!mounted) return;
-    if (!status.isGranted) {
-      // 権限がない場合は何もしない（必要ならエラーメッセージ表示など）
-      return;
+    // マイク権限リクエスト（初回だけ）
+    if (!_hasRequestedPermission) {
+      final status = await Permission.microphone.request();
+      _hasRequestedPermission = true;
+      if (!mounted) return;
+      if (!status.isGranted) {
+        return;
+      }
     }
 
-    // ★ MicSessionManager に「tuner の stop 処理」を登録
+    // ★ MicSessionManager に「tuner の stop 処理」を登録（stopしない方針）
     MicSessionManager.instance.registerOwner(MicSessionOwner.tuner, () async {
-      // チューナー側でマイクを止めたいときに実行される処理
-      sharedPitchSource.stop();
-      // 必要なら、ここで内部状態リセットなども追加可能
+      // stopは呼ばない（方針）
+      // 必要なら内部状態リセット等だけを行う
     });
 
-    // 共有の PitchSource からピッチ値を受け取る
-    _pitchStreamSub = sharedPitchSource.stream.listen((hz) {
+    // 共有の PitchSource からピッチ値を受け取る（多重listen防止）
+    _pitchStreamSub ??= sharedPitchSource.stream.listen((hz) {
       final baseA4 = sharedBaseA4Hz.value;
-      final noteNum = hzToNoteNumberWithBaseA4(hz, widget.baseA4Hz);
+
+      final noteNum = hzToNoteNumberWithBaseA4(hz, baseA4);
 
       // ① 生の誤差（baseA4Hz対応）
-      final rawCents = centsErrorForNoteNumberWithBaseA4(
-        hz,
-        noteNum,
-        widget.baseA4Hz,
-      );
+      final rawCents = centsErrorForNoteNumberWithBaseA4(hz, noteNum, baseA4);
 
       // ② キャリブレーションを適用した誤差
       final cents = rawCents + _kTunerCalibrationOffsetCents;
@@ -143,23 +203,29 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
         _currentFreqHz = _smoothedFreqHz;
         _currentNoteLabel = label;
         _currentCents = _smoothedCents;
-
-        // ★ 表示も adjCents
-        _currentCents = _smoothedCents;
       });
     });
 
-    // 共有の PitchSource を起動（既に起動済みなら内部で何もしない想定）
-    await sharedPitchSource.start();
+    // ★ここで start しても空振りすることがあるので、
+    //   「タブ表示/復帰」で確実にキックする ensureRunning に寄せる
+    if (widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ensureRunning(reason: 'initPitchListening-active');
+      });
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
     _pitchStreamSub?.cancel();
     _pitchStreamSub = null;
-    // ★追加：画面が破棄されるときは必ずマイク/ストリームも止める
-    sharedPitchSource.stop();
-    // sharedPitchSource はアプリ全体で使い回すのでここでは dispose しない
+
+    // ★方針：disposeでも stop しない
+    // sharedPitchSource.stop();
+
     super.dispose();
   }
 

@@ -362,7 +362,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get brilliantLabel => 'Brilliant（きらびやか）';
 
   @override
-  String get homeIntroLine1 => '5秒の録音で、あなたの楽器の音色を数値やグラフで可視化';
+  String get homeIntroLine1 => '5秒の録音で楽器の音色を数値やグラフで可視化';
 
   @override
   String get homeIntroLine2 => '「録音開始」を押して、音の探求を始めましょう';

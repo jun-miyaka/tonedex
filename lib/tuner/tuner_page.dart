@@ -7,7 +7,9 @@ import 'tuner_models.dart';
 import 'tuner_widgets.dart';
 
 class TunerPage extends StatefulWidget {
-  const TunerPage({super.key});
+  final bool isActive;
+
+  const TunerPage({super.key, required this.isActive});
 
   @override
   State<TunerPage> createState() => _TunerPageState();
@@ -26,7 +28,7 @@ class _TunerPageState extends State<TunerPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // リアルタイムチューナー
-            RealTimeTunerPanel(baseA4Hz: sharedBaseA4Hz.value),
+            RealTimeTunerPanel(isActive: widget.isActive),
             const SizedBox(height: 24),
 
             // ピッチチェック（結果表示もこのカードの中で完結）

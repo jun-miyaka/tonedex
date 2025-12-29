@@ -9,7 +9,7 @@ import 'dart:async';
 /// マイクを使い始める前に `acquire` を呼び出します。
 /// 別オーナーがすでにマイクを握っている場合、その停止処理が呼ばれます。
 
-enum MicSessionOwner { tuner, recorder }
+enum MicSessionOwner { tuner, recorder, mapper }
 
 class MicSessionManager {
   MicSessionManager._internal();
