@@ -47,5 +47,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app needs access to your photo library only when you choose to share or save analysis images.</string>
+
 </dict>
 </plist>

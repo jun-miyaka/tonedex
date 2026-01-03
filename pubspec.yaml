@@ -30,7 +30,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  permission_handler: ^11.0.0       # 録音・ファイル保存のパーミッション用
+  permission_handler: ^12.0.1       # 録音・ファイル保存のパーミッション用
   path_provider: ^2.0.15           # ファイル保存パス取得
   audioplayers: ^5.2.1             # 録音ファイルの再生
   uuid: ^4.5.1                     # 録音ファイル名に一意IDを付与
@@ -41,14 +41,14 @@ dependencies:
   shared_preferences: ^2.2.2       # 設定情報保存などに使用
   url_launcher: ^6.2.5
 
-  sound_palette:
-    path: "../SoundPalette"   # ← あなたの実際の相対パスに合わせる
+#  sound_palette:
+#    path: "../SoundPalette"   # ← あなたの実際の相対パスに合わせる
 
   flutter_localizations:
     sdk: flutter
 
       # ▼ ここを追加（Tuner用）
-  audio_streamer: ^4.2.2
+  audio_streamer: ^4.3.0
   pitch_detector_dart: ^0.0.7
   cupertino_icons: ^1.0.8
 

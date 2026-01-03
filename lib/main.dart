@@ -17,7 +17,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sax_app/l10n/app_localizations.dart';
 // ← これを使う
-import 'package:sound_palette/sound_palette.dart'; // ← pubspec の path 依存で使えるように
+// ← pubspec の path 依存で使えるように
 import 'tuner/tuner_page.dart';
 import 'audio/mic_session_manager.dart';
 import 'dart:convert';
@@ -266,10 +266,10 @@ class _RecorderPageState extends State<RecorderPage> {
     // 録音中を止めたいならここで（任意）
     // _stopIfRecording();
 
-    Navigator.of(context).pop(); // Drawerを閉じる
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const SoundPalettePage()));
+    //Navigator.of(context).pop(); // Drawerを閉じる
+    //Navigator.of(
+    //  context,
+    //).push(MaterialPageRoute(builder: (_) => const SoundPalettePage()));
   }
 
   // Zスコア（既に _zScoresOf があるならそれを使ってOK。無ければこれを置く）
@@ -683,16 +683,14 @@ class _RecorderPageState extends State<RecorderPage> {
   Future<void> _shareAllAnalysisResults(GlobalKey boundaryKey) async {
     final dir = await getApplicationDocumentsDirectory();
 
-    // テキストファイルの生成
-    final textFile = File('${dir.path}/analysis_results.txt');
+    // ★テキストは「ファイルを作らず」文字列のまま
     final textContent = List.generate(fileNames.length, (i) {
       final name = _safeLabel(i);
       final result = results.length > i && results[i].length == 5
-          ? _formatRecordLines(i) // ← フォーマッタ呼び出しに置換
+          ? _formatRecordLines(i)
           : '未分析または不完全';
       return '$name\n$result';
     }).join('\n\n');
-    await textFile.writeAsString(textContent);
 
     // グラフ画像のキャプチャ
     final boundary =
@@ -705,16 +703,11 @@ class _RecorderPageState extends State<RecorderPage> {
       final chartFile = File('${dir.path}/chart.png');
       await chartFile.writeAsBytes(pngBytes);
 
-      // 共有処理（画像＋テキスト）
-      await Share.shareXFiles([
-        XFile(textFile.path),
-        XFile(chartFile.path),
-      ], text: 'ToneDex Analysis Results + Chart');
+      // ★共有処理：画像はファイル、テキストは文字列
+      await Share.shareXFiles([XFile(chartFile.path)], text: textContent);
     } else {
       // fallback（テキストのみ）
-      await Share.shareXFiles([
-        XFile(textFile.path),
-      ], text: 'ToneDex Analysis Results');
+      await Share.share(textContent);
     }
   }
 
@@ -1506,7 +1499,7 @@ class _MainTabScaffoldState extends State<MainTabScaffold> {
         children: [
           const RecorderPage(), // ToneDex
           TunerPage(isActive: _currentIndex == 1), // ★ここが肝
-          const SoundPalettePage(), // Mapper
+          //const SoundPalettePage(), // Mapper
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -1543,10 +1536,10 @@ class _MainTabScaffoldState extends State<MainTabScaffold> {
             label: 'ToneDex',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.tune), label: 'Tuner'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.color_lens_outlined),
-            label: 'Mapper',
-          ),
+          //BottomNavigationBarItem(
+          //  icon: Icon(Icons.color_lens_outlined),
+          //  label: 'Mapper',
+          //),
         ],
       ),
     );
