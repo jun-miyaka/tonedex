@@ -70,6 +70,17 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
 
   bool _hasRequestedPermission = false;
   bool _isEnsuring = false; // 多重キックのガード（最小）
+  bool _stopping = false;
+
+  Future<void> _stopMic({String? reason}) async {
+    if (_stopping) return;
+    _stopping = true;
+    try {
+      sharedPitchSource.stop();
+    } finally {
+      _stopping = false;
+    }
+  }
 
   @override
   void initState() {
@@ -90,11 +101,15 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
   void didUpdateWidget(covariant RealTimeTunerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 非アクティブ→アクティブになった瞬間に、確実に start を叩く
+    if (oldWidget.isActive && !widget.isActive) {
+      _stopMic(reason: 'tab-inactive');
+      return;
+    }
+
     if (!oldWidget.isActive && widget.isActive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ensureRunning(reason: 'tab-visible');
+        ensureRunning(reason: 'tab-active');
       });
     }
   }
@@ -164,10 +179,17 @@ class _RealTimeTunerPanelState extends State<RealTimeTunerPanel>
     }
 
     // ★ MicSessionManager に「tuner の stop 処理」を登録（stopしない方針）
-    MicSessionManager.instance.registerOwner(MicSessionOwner.tuner, () async {
-      // stopは呼ばない（方針）
-      // 必要なら内部状態リセット等だけを行う
-    });
+    void _stopMic({required String reason}) {
+      debugPrint('[TUNER] stopMic reason=$reason');
+      if (_stopping) return;
+      _stopping = true;
+      try {
+        sharedPitchSource.stop();
+        MicSessionManager.instance.release(MicSessionOwner.tuner);
+      } finally {
+        _stopping = false;
+      }
+    }
 
     // 共有の PitchSource からピッチ値を受け取る（多重listen防止）
     _pitchStreamSub ??= sharedPitchSource.stream.listen((hz) {

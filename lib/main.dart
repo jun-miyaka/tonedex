@@ -565,12 +565,11 @@ class _RecorderPageState extends State<RecorderPage> {
     final textRaw = buildSection(DisplayMode.raw);
     final textZ = buildSection(DisplayMode.zscore);
 
-    // 1) テキストを書き出す（Calibrated抜き）
-    final textFile = File('${dir.path}/analysis_results_$ts.txt');
-    await textFile.writeAsString([textRaw, textZ].join('\n\n'));
+    // ★ 1) テキストはファイルにせず「直貼り」にする
+    final shareText = [textRaw, textZ].join('\n\n');
 
-    // 2) チャート画像をキャプチャ（あれば）
-    final xfiles = <XFile>[XFile(textFile.path)];
+    // ★ 2) 添付は画像のみ（テキストファイルは添付しない）
+    final xfiles = <XFile>[];
     //    final boundary =
     //        boundaryKey.currentContext?.findRenderObject()
     //            as RenderRepaintBoundary?;
@@ -619,9 +618,17 @@ class _RecorderPageState extends State<RecorderPage> {
 
     // 3) 共有シートを開く（share_plus）
     try {
-      await Share.shareXFiles(xfiles, subject: 'ToneDex analysis $ts');
+      if (xfiles.isNotEmpty) {
+        await Share.shareXFiles(
+          xfiles,
+          subject: 'ToneDex analysis $ts',
+          text: shareText,
+        );
+      } else {
+        await Share.share(shareText, subject: 'ToneDex analysis $ts');
+      }
     } catch (e, st) {
-      debugPrint('ERROR: Share.shareXFiles failed: $e');
+      debugPrint('ERROR: Share failed: $e');
       debugPrint(st.toString());
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -681,8 +688,6 @@ class _RecorderPageState extends State<RecorderPage> {
   }
 
   Future<void> _shareAllAnalysisResults(GlobalKey boundaryKey) async {
-    final dir = await getApplicationDocumentsDirectory();
-
     // ★テキストは「ファイルを作らず」文字列のまま
     final textContent = List.generate(fileNames.length, (i) {
       final name = _safeLabel(i);
@@ -700,11 +705,14 @@ class _RecorderPageState extends State<RecorderPage> {
       final image = await boundary.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
+      final dir = await getApplicationDocumentsDirectory(); // ←ここで取得
       final chartFile = File('${dir.path}/chart.png');
       await chartFile.writeAsBytes(pngBytes);
 
       // ★共有処理：画像はファイル、テキストは文字列
-      await Share.shareXFiles([XFile(chartFile.path)], text: textContent);
+      await Share.shareXFiles([
+        XFile(chartFile.path),
+      ], text: textContent); // text削除
     } else {
       // fallback（テキストのみ）
       await Share.share(textContent);
