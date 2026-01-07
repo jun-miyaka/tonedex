@@ -24,7 +24,7 @@ import 'package:flutter/scheduler.dart';
 final PitchSource sharedPitchSource = PitchSource();
 
 // ★ 追加：ToneDexチューナー全体のキャリブレーション（単位：cents）
-const double _kTunerCalibrationOffsetCents = -8.0;
+const double _kTunerCalibrationOffsetCents = 0.0;
 
 // ★追加：リアルタイム／PitchChecker で共有する A4 基準周波数
 final ValueNotifier<double> sharedBaseA4Hz = ValueNotifier<double>(440.0);
